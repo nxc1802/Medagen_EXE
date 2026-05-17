@@ -1,0 +1,32 @@
+# Environments
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+
+# Build and Temp
+dist/
+build/
+.next/
+out/
+.DS_Store
+*.log
+coverage/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Note: Model weights (.pth) are tracked via Git LFS or direct push as per requirement
+# *.pth 

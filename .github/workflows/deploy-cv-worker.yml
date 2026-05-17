@@ -1,0 +1,32 @@
+name: Deploy CV Worker to Hugging Face Space
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'medagen-v2/cv-worker/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Push to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE_URL: "https://huggingface.co/spaces/YOUR_HF_USERNAME/medagen-cv-worker"
+        run: |
+          git config --global credential.helper store
+          echo "https://user:$HF_TOKEN@huggingface.co" > ~/.git-credentials
+          git clone $SPACE_URL hf_space
+          cp -r medagen-v2/cv-worker/* hf_space/
+          cd hf_space
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add .
+          git commit -m "Auto deploy CV worker from GitHub Actions" || true
+          git push origin main
