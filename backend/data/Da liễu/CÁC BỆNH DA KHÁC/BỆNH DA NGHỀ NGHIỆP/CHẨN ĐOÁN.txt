@@ -1,0 +1,77 @@
+3. CHẨN ĐOÁN
+a) Chẩn đoán xác định
+- Lâm sàng
+Để gây viêm da tiếp xúc, một hóa chất đầu tiên phải thâm nhập vào lớp sừng
+và sau đó tương tác trực tiếp với các tế bào sừng gây ra viêm da tiếp xúc kích ứng
+hoặc với hệ thống miễn dịch của da để gây ra viêm da tiếp xúc dị ứng.
+Viêm da tiếp xúc
++ Vị trí: vùng da tiếp xúc, vùng da hở.
++ Viêm da tiếp xúc dị ứng: xuất hiện muộn sau khi tiếp xúc và vị trí tổn
+thương ở xung quanh hoặc xa nơi tiếp xúc. Thương tổn là ban đỏ, sẩn, có thể có
+mụn nước, tăng sừng và dày sừng, loét hoặc sùi.
++ Viêm da tiếp xúc kích ứng: biểu hiện thường cấp tính, xuất hiện ngay sau
+khi tiếp xúc. Thương tổn là ban đỏ, mụn nước/bọng nước, loét, cảm giác rát bỏng.
++ Bỏng hóa chất:
+. Triệu chứng ban đầu bao gồm rát bỏng, và đau nhức nhối.
+. Tiến triển tiếp theo ban đỏ, mụn nước, loét và sau đó.
+. Các triệu chứng thường xuất hiện nhanh và liên kết chặt chẽ với các tiếp
+xúc, như một số hóa chất axít mạnh, kiềm mạnh, hóa chất hữu cơ và vô cơ, dung
+môi và một số loại khí.
+. Tuy nhiên, đối với các chất như phenol và axít HF yếu, triệu chứng có thể
+xuất hiện muộn và kéo dài.
++ Viêm da do sợi thủy tinh:
+. Sợi thủy tinh được chia thành các loại khác nhau tùy thuộc vào đường kính
+sợi và được sử dụng để bọc cách điện (nhiệt điện, âm thanh và điện), tăng cường
+khả năng lọc.
+. Lâm sàng: nhiều sẩn đỏ tập trung thành từng đám, viêm quanh móng, mắt
+bỏng rát, đau họng và ho.
++ Phản ứng độc ánh sáng:
+. Do tiếp xúc trong tự nhiên hoặc trong sản xuất các chất bị hoạt hóa bởi ánh
+sáng. Phổ biến nhất là tiếp xúc với psoralen nguồn gốc tự nhiên như từ một loại
+thực phẩm như là cần tây hoặc củ cải, hoặc cỏ dại hoặc từ nhựa than đá và các sản
+phẩm của nó.
+. Lâm sàng: cảm giác nóng rát hoặc đau nhức xuất hiện sau khi ít nhất là 15
+phút tiếp xúc với ánh mặt trời, dát đỏ, mụn nước và bọng nước.
+. Tiến triển lành để lại đám da tăng sắc tố.
++ Cơ học:
+. Do tác động ma sát trên da gây nên.
+. Lâm sàng: chai chân, tay, dày sừng lichen hóa, dày sừng lòng bàn tay, phản
+ứng chàm sau chấn thương.
+- Cận lâm sàng
++ Thử nghiệm da: chất thử dùng làm thử nghiệm trên da ở dạng rắn, mỡ, chất
+lỏng hoặc ở thể hơi. Tùy thuộc vào tính chất và hoạt tính hóa học của từng chất mà
+chất thử được dùng dưới dạng nguyên chất hay pha loãng trong các chất dẫn với các
+nồng độ thích hợp. Các phương pháp sử dụng:
+. Thử nghiệm áp da
+. Thử nghiệm lẩy da
+. Thử nghiệm nhỏ giọt
++ Thử nghiệm trung hòa kiềm (phương pháp Burchardt): tính thời gian mất
+mầu (màu hồng) sau khi nhỏ dung dịch NaOH và phenolphtalein lên da vùng mặt
+trước cẳng tay, cánh tay phần da lành. Kết quả:
+. Tốt: dưới 5 phút.
+. Trung bình: từ 5 đến 7 phút.
+. Kém: hơn 7 phút.
++ Đo liều sinh vật: áp dụng cho bệnh nhân tiếp xúc với một số chất quang
+động học. Liều sinh vật là thời gian qui định được chiếu tia tử ngoại để thấy xuất
+hiện trên da một dát đỏ hồng.
++ Định lượng sinh hóa coproporphyrin niệu: áp dụng cho công nhân tiếp xúc
+với chì.
++ Các xét nghiệm khác: cấy nấm, vi khuẩn, sinh hóa, huyết học.
+Chẩn đoán xác định
+Chẩn đoán bệnh da nghề nghiệp không khác chẩn đoán bệnh da thông
+thường. Đối với các trường hợp nghi ngờ, cần xác định các đặc điểm sau:
+- Xác định loại và vị trí các tổn thương: với tính chất vùng hở hoặc tiếp xúc
+biết rõ liên quan đến nghề nghiệp.
+- Thiết lập mối liên quan giữa bệnh da với nghề nghiệp và môi trường lao
+động.
+- Đánh giá các yếu tố cơ địa và các yếu tố khác góp phần gây tác hại.
+- Đặc điểm biểu hiện lâm sàng.
+- Xét nghiệm thử nghiệm da.
+b) Chẩn đoán phân biệt
+- Viêm da tiếp xúc do các nguyên nhân khác không liên quan đến nghề
+nghiệp.
+- Viêm da cơ địa
+- Nấm da
+- Vảy nến
+- Bệnh da do ánh sáng: nhiễm độc hoặc dị ứng do thuốc
+- Porphyrin da

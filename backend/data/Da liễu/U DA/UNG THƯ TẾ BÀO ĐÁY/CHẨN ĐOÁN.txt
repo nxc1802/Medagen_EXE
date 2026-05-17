@@ -1,0 +1,52 @@
+3. CHẨN ĐOÁN
+a) Chẩn đoán xác định: dựa vào lâm sàng và xét nghiệm mô bệnh học.
+- Lâm sàng
++ Thể u
+Là thể hay gặp nhất trong các thể của ung thư tế bào đáy.
+Vị trí chủ yếu ở vùng đầu, cổ và nửa trên thân mình.
+Thường bắt đầu là u nhỏ, mật độ chắc, trên có giãn mạch, không ngứa, không
+đau, tiến triển chậm, tăng dần về kích thước, lan ra xung quanh, thâm nhiễm, xâm
+lấn đến các tổ chức dưới da. Tổn thương có thể loét, dễ chảy máu, đóng vảy tiết
+đen, bờ nổi cao với các sẩn bóng, chắc được gọi là “hạt ngọc ung thư”.
+Hình ảnh mô bệnh học có lớp thượng bì bị phá hủy. Các tế bào ung thư có
+nhân thẫm màu, hình bầu dục sắp xếp thành khối, giới hạn rõ, được bao bọc xung
+quanh bởi các bó xơ.
++ Thể nông
+Tổn thương dát, sẩn màu hồng hoặc đỏ nâu, có vảy da, trung tâm tổn thương
+thường lành.
+Bờ hơi nổi cao giống như sợi chỉ.
+Vị trí thường gặp là ở vùng thân và ít có xu hướng xâm lấn.
+Trên hình ảnh mô bệnh học thấy các tế bào ung thư khu trú ở thượng bì, có
+thể xâm lấn xuống trung bì nông.
++ Thể xơ
+Thường gặp ở vùng mũi hoặc trán.
+Thương bằng phẳng với mặt da, đôi khi thành sẹo lõm, thâm nhiễm, trên có
+các mạch máu giãn, giới hạn không rõ ràng với da lành.
+Thể này có tỉ lệ tái phát rất cao sau điều trị.
+Trên hình ảnh mô bệnh học thấy các tế bào ung thư thẫm màu x en kẽ các tế
+bào xơ, giới hạn không rõ, đôi khi xâm lấn xuống trung bì sâu.
+Các thể trên đây đều có thể loét hoặc tăng sắc tố.
+- Cận lâm sàng: sinh thiết bờ tổn thương làm mô bệnh học để chẩn đoán xác
+định.
+b) Chẩn đoán giai đoạn
+Xác định giai giai đoạn của ung thư theo phân loại TNM của AJCC
+(American Joint Commitee on Cancer): T (Tumour) -u, N (Lymph node)-hạch, M
+(Distant metastases)-di căn xa.
+- Giai đoạn o: ToNoMo
+- Giai đoạn I: T1N0M0
+- Giai đoạn II: T bất kỳ, N1-3, M0
+- Giai đoạn III: T bất kỳ, N bất kỳ, M1
+c) Chẩn đoán phân biệt
+- Lupus lao: tổn thương cơ bản là các củ lao, màu đỏ nâu ấn kính có màu
+vàng, châm kim dễ dàng như châm vào bơ. Xét nghiệm mô bệnh học có tổn thương
+thành nang. Các xét nghiệm khác như nuôi cấy hoặc PCR để xác định chẩn đoán.
+- Lupus ban đỏ kinh diễn: bệnh thường gặp ở phụ nữ trung niên. Tổn thương
+là dát đỏ, giới hạn rõ ở vùng da tiếp xúc với ánh nắng mặt trời. Vảy trên thương tổn
+dày, khó bong. Khi lấy bỏ lớp vảy có thể thấy hiện tượng teo da, dày sừng quanh
+nang lông.
+- Ung thư tế bào hắc tố: trường hợp ung thư tế bào đáy có tăng sắc tố rất dễ
+nhầm với ung thư tế bào hắc tố. Ung thư tế bào hắc tố rất ác tính, thường tiến triển
+nhanh, hiện tượng tăng sắc tố không đồng nhất.
+- Bệnh Paget ngoài vú: tổn thương là dát đỏ, giới gạn rõ thường gặp ở bộ
+phận sinh dục, không ngứa, không đau, tiến triển lâu và có thể liên quan với ung thư
+vùng tiết niệu sinh dục. Chẩn đoán xác định bằng sinh thiết làm mô bệnh học.

@@ -1,0 +1,18 @@
+4. ĐIỀU TRỊ
+a) Nguyên tắc chung
+- Kết hợp dùng thuốc với việc điều chỉnh chế độ sinh hoạt của người bệnh.
+- Điều trị tấn công kết hợp với điều trị duy trì.
+b) Điều trị cụ thể
+- Tại chỗ
++ Kem corticoid nhóm trung bình
++ Kem chống nắng
+- Toàn thân
+- Corticoid: là thuốc quan trọng nhất. Liều lượng tùy theo từng giai đoạn và
+tiến triển bệnh. Liều tấn công thường dùng là 2-3mg/kg/24 giờ, khi triệu chứng
+giảm thì bắt đầu giảm liều. Thông thường khoảng 1-2 tuần giảm 10mg.
+- Các thuốc ức chế miễn dịch khác: azathioprin, cyclophosphamid,
+cyclosporin, methotrexat, ... Các thuốc này có thể phối hợp với corticoid hoặc dùng
+riêng tùy tiến triển của bệnh.
+- Các chất sinh học: Infliximab, Etanercept…có thể được chỉ định cho những
+trường hợp người bệnh nặng, không đáp ứng với corticoid và cách thuốc ức chế
+miễn dịch.

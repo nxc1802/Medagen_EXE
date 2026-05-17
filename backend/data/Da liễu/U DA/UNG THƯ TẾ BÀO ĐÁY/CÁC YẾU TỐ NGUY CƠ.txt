@@ -1,0 +1,18 @@
+2. CÁC YẾU TỐ NGUY CƠ
+a) Ánh nắng mặt trời
+Tia cực tím được cho là nguyên nhân chủ yếu gây ung thư tế bào đáy. Chùm
+tia cực tím có thể tác động trực tiếp hay gián tiếp gây nên sai lệch quá trình tổng
+hợp ADN trong quá trình phân chia tế bào. Những sai lệch này luôn được sửa chữa
+một cách kịp thời, nhưng vì một lý do nào đó không được sửa chữa, các tế bào phát
+triển không kiểm soát gây ung thư.
+b) Những biến đổi về gen
+- Gen p53 mã hóa cho protein p53 có tác dụng ức chế sự phát triển của các tế
+bào u. Ở những người bệnh có gen p53 không hoạt động, khả năng bị ưng thư da
+cao.
+- Gen BRAF là gen mã hóa của protein thuộc họ raf/mil có vai trò điều hòa sự
+dẫn truyền thông tin trong tế bào theo hệ thống MAP kinase/ERKs trong quá trình
+phân chia và biệt hóa của tế bào. Đột biến của gen này thường gây một số loại ung
+thư như u lympho không-Hodgkin, ung thư trực tràng, ung thư phổi, ung thư tuyến
+giáp và ung thư tế bào hắc tố.
+- Gen "patched" nằm trên chromosome thứ 9, có tác dụng trực tiếp làm tăng
+cường quá trình chết theo chương trình (apoptosis) của các tế bào u.

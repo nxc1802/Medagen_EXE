@@ -1,0 +1,28 @@
+4. ĐIỀU TRỊ
+Từ 1981- nay: Tổ chức Y tế thế giới khuyến cáo sử dụng Đa hóa trị liệu
+(MDT: Multidrug Therapy) bao gồm các thuốc: rifampicin, clofazimin, dapson
+(DDS) để điều trị bệnh phong.
+a) Phác đồ điều trị bệnh phong người lớn
+- Thể ít vi khuẩn (PB):
++ Rifampicin 600mg: 1 tháng uống 1 lần (có kiểm soát).
++ DDS 100mg/ngày: tự uống hàng ngày.
+Thời gian điều trị: 6 tháng.
+- Thể nhiều vi khuẩn (MB):
++ Rifampicin 600mg: 1 tháng uống 1 lần có kiểm soát.
++ Clofazimin 300mg: 1 tháng uống 1 lần có kiểm soát.
++ Clofazimin 50mg: tự uống hàng ngày.
++ DDS 100mg: tự uống hàng ngày.
+Thời gian điều trị: 12 tháng.
+b) Phác đồ điều trị bệnh phong trẻ em:
+- Thể ít vi khuẩn (PB: Paucibacillary):
+Thuốc < 10 tuổi 10-14 tuổi
+Liều mỗi tháng uống 1 lần Rifampicin 300mg 450mg
+DDS 25mg 50mg
+Liều mỗi ngày DDS 25mg 50mg
+Thời gian điều trị: 6 tháng.
+- Thể nhiều vi khuẩn (MB: Multibacillary):
+Thuốc < 10 tuổi 10-14 tuổi
+Liều mỗi tháng uống 1 lần Rifampicin 300mg 450mg
+DDS 25mg 50mg
+Liều mỗi ngày DDS 25mg 50mg
+Thời gian điều trị: 12 tháng.
