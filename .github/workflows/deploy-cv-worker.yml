@@ -24,7 +24,7 @@ jobs:
           git config --global credential.helper store
           echo "https://user:$HF_TOKEN@huggingface.co" > ~/.git-credentials
           git clone $SPACE_URL hf_space
-          cp -r cv-worker/* hf_space/
+          rsync -av --exclude='models/' --exclude='.env' --exclude='.pytest_cache/' cv-worker/ hf_space/
           cd hf_space
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
