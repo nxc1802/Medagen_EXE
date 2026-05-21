@@ -28,6 +28,7 @@ jobs:
           cd hf_space
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
+          git config lfs.allowincompletepush true
           git add .
           git commit -m "Auto deploy backend from GitHub Actions" || true
           git push origin main
