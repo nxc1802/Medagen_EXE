@@ -16,6 +16,10 @@ async function start() {
     await fastify.register(swagger as any, swaggerOptions);
     await fastify.register(swaggerUi, swaggerUiOptions);
 
+    fastify.get('/', async () => {
+      return { status: 'ok', message: 'Medagen Backend API is running.' };
+    });
+
     fastify.get('/health', async () => {
       return { status: 'ok', environment: env.NODE_ENV, llm_provider: env.LLM_PROVIDER };
     });
