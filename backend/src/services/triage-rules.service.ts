@@ -8,6 +8,50 @@ interface TriageRulesResult {
 }
 
 export class TriageRulesService {
+  private extractSymptomsFromText(text: string): Partial<TriageInput['symptoms']> {
+    const lower = text.toLowerCase();
+    const symptoms: Partial<TriageInput['symptoms']> = {};
+
+    // vision_changes (thay đổi thị lực đột ngột)
+    if (/(mờ mắt|thị lực|nhìn mờ|nhìn đôi|mắt mờ|blurry|vision|mất thị lực)/i.test(lower)) {
+      symptoms.vision_changes = true;
+    }
+    // breathing_difficulty (khó thở)
+    if (/(khó thở|hụt hơi|thở dốc|ngạt thở|shortness of breath|breathing)/i.test(lower)) {
+      symptoms.breathing_difficulty = true;
+    }
+    // chest_pain (đau ngực)
+    if (/(đau ngực|tức ngực|nhói ngực|nặng ngực|chest pain)/i.test(lower)) {
+      symptoms.chest_pain = true;
+    }
+    // severe_headache (đau đầu dữ dội)
+    if (/(đau đầu dữ dội|đau đầu như búa bổ|nhức đầu kinh khủng|severe headache|đau đầu rất)/i.test(lower)) {
+      symptoms.severe_headache = true;
+    }
+    // confusion (lú lẫn, ý thức thay đổi)
+    if (/(lú lẫn|mất phương hướng|ngất|bất tỉnh|mê man|confusion|hôn mê)/i.test(lower)) {
+      symptoms.confusion = true;
+    }
+    // fever (sốt)
+    if (/(sốt|nóng sốt|sốt cao|fever)/i.test(lower)) {
+      symptoms.fever = true;
+    }
+    // bleeding (chảy máu)
+    if (/(chảy máu|ra máu|máu chảy|bleeding|blood)/i.test(lower)) {
+      symptoms.bleeding = true;
+    }
+    // pain_severity (độ đau)
+    if (/(dữ dội|kinh khủng|rất đau|đau quặn|severe pain|nhức nhối|quá đau)/i.test(lower)) {
+      symptoms.pain_severity = 'nặng';
+    } else if (/(vừa|ê ẩm|âm ỉ|đau nhức|đau nhiều|đau vừa)/i.test(lower)) {
+      symptoms.pain_severity = 'vừa';
+    } else if (/(nhẹ|hơi đau|không đau lắm|mild|đau nhẹ)/i.test(lower)) {
+      symptoms.pain_severity = 'nhẹ';
+    }
+
+    return symptoms;
+  }
+
   evaluateSymptoms(input: TriageInput): TriageRulesResult {
     logger.info('Evaluating triage rules...');
     
@@ -15,7 +59,18 @@ export class TriageRulesService {
     let triage: TriageLevel = 'routine';
     let reasoning = '';
 
-    const { symptoms } = input;
+    const originalSymptoms = input.symptoms || { main_complaint: '' };
+    const contextText = (originalSymptoms as any).context || '';
+    const combinedText = `${originalSymptoms.main_complaint || ''} ${contextText}`;
+    
+    // Automatically extract symptoms from raw text
+    const extracted = this.extractSymptomsFromText(combinedText);
+    
+    // Merge: structured symptoms passed by user take precedence over raw text extraction
+    const symptoms = {
+      ...extracted,
+      ...originalSymptoms
+    };
 
     // EMERGENCY level checks
     if (symptoms.vision_changes) {

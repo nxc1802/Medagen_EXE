@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'medagen-v2/backend/**'
+      - 'backend/**'
 
 jobs:
   deploy:
@@ -18,12 +18,12 @@ jobs:
       - name: Push to HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          SPACE_URL: "https://huggingface.co/spaces/YOUR_HF_USERNAME/medagen-backend"
+          SPACE_URL: "https://huggingface.co/spaces/Cuong2004/Medagen_EXE"
         run: |
           git config --global credential.helper store
           echo "https://user:$HF_TOKEN@huggingface.co" > ~/.git-credentials
           git clone $SPACE_URL hf_space
-          cp -r medagen-v2/backend/* hf_space/
+          cp -r backend/* hf_space/
           cd hf_space
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"

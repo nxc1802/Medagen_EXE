@@ -6,6 +6,7 @@ import {
   calculateSpecialtyMatchScore,
   type MedicalSpecialty 
 } from '../utils/medical-specialty-mapper.js';
+import { config } from '../utils/config.js';
 
 export interface HospitalCandidate extends NearestClinic {
   specialty_score?: number;
@@ -25,6 +26,10 @@ export class MapsService {
     keyword: string = 'phòng khám bệnh viện',
     limit: number = 3
   ): Promise<HospitalCandidate[]> {
+    if (!config.googleMaps.enabled) {
+      logger.info('Maps service is disabled (no GOOGLE_MAPS_API_KEY). Returning empty hospital candidates list.');
+      return [];
+    }
     try {
       logger.info('Searching for nearest clinic using OpenStreetMap...');
 
@@ -166,6 +171,10 @@ out center;
     condition?: string,
     keyword: string = 'bệnh viện'
   ): Promise<HospitalCandidate | null> {
+    if (!config.googleMaps.enabled) {
+      logger.info('Maps service is disabled (no GOOGLE_MAPS_API_KEY). Returning null.');
+      return null;
+    }
     try {
       logger.info(`Finding best matching hospital${condition ? ` for condition: ${condition}` : ''}...`);
 

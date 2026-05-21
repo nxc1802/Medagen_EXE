@@ -135,6 +135,8 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   derm_cv: 'Dermatology CV Analysis',
   eye_cv: 'Eye Condition Analysis',
   wound_cv: 'Wound Assessment',
+  teeth_cv: 'Dental/Mouth CV Analysis',
+  nail_cv: 'Nail CV Analysis',
   triage_rules: 'Triage Classification',
   guideline_retrieval: 'Medical Guidelines',
   rag_query: 'Medical Knowledge Retrieval',

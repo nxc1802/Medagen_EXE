@@ -15,6 +15,9 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().optional(),
   ALIBABA_API_KEY: z.string().optional(),
   
+  // Embedding Configurations
+  EMBEDDING_PROVIDER: z.enum(['google', 'openai', 'ollama', 'openrouter']).default('google'),
+  
   // Services
   CV_ENDPOINT: z.string().url().default('http://localhost:8000'),
   CV_API_KEY: z.string().optional(),

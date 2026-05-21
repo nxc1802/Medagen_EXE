@@ -3,7 +3,7 @@ import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GeminiEmbedding } from '../agent/gemini-embedding.js';
 import { config, validateConfig } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -23,8 +23,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const embedModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+const embeddingModel = new GeminiEmbedding();
 
 // ===================== HELPER FUNCTIONS =====================
 
@@ -68,11 +67,10 @@ function parseSectionFileName(filename: string): { title: string } | null {
 }
 
 /**
- * Generate embedding using Gemini
+ * Generate embedding using dynamic provider
  */
 async function embed(text: string): Promise<number[]> {
-  const res = await embedModel.embedContent(text);
-  return res.embedding.values;
+  return await embeddingModel.embedQuery(text);
 }
 
 /**

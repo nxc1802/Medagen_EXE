@@ -20,9 +20,9 @@ export const config = {
   port: isNaN(port) ? 3000 : port,
   
   gemini: {
-    apiKey: process.env.GEMINI_API_KEY || '',
-    model: 'gemini-2.5-flash',
-    embeddingModel: 'text-embedding-004'
+    apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
+    model: process.env.GOOGLE_MODEL_NAME || 'gemini-2.5-flash',
+    embeddingModel: process.env.GOOGLE_EMBEDDING_MODEL_NAME || 'text-embedding-004'
   },
   
   supabase: {
@@ -32,7 +32,8 @@ export const config = {
   },
   
   googleMaps: {
-    apiKey: process.env.GOOGLE_MAPS_API_KEY || ''
+    apiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+    enabled: !!process.env.GOOGLE_MAPS_API_KEY
   },
   
   cvModels: {
@@ -56,8 +57,8 @@ export const config = {
 
 // Validate required config
 export function validateConfig() {
+  // Supabase is always required
   const required = [
-    { key: 'GEMINI_API_KEY', value: config.gemini.apiKey },
     { key: 'SUPABASE_URL', value: config.supabase.url },
     { key: 'SUPABASE_SERVICE_KEY', value: config.supabase.serviceKey }
   ];
@@ -65,6 +66,31 @@ export function validateConfig() {
   for (const { key, value } of required) {
     if (!value) {
       throw new Error(`Missing required environment variable: ${key}`);
+    }
+  }
+
+  // Google provider validation
+  const llmProvider = process.env.LLM_PROVIDER || 'google';
+  const embedProvider = process.env.EMBEDDING_PROVIDER || 'google';
+
+  if (llmProvider === 'google' || embedProvider === 'google') {
+    const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    if (!googleKey) {
+      throw new Error('Missing required environment variable: GOOGLE_API_KEY or GEMINI_API_KEY (required since Google provider is active)');
+    }
+  }
+
+  // OpenAI provider validation
+  if (llmProvider === 'openai' || embedProvider === 'openai') {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('Missing required environment variable: OPENAI_API_KEY (required since OpenAI provider is active)');
+    }
+  }
+
+  // OpenRouter provider validation
+  if (llmProvider === 'openrouter' || embedProvider === 'openrouter') {
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error('Missing required environment variable: OPENROUTER_API_KEY (required since OpenRouter provider is active)');
     }
   }
 }

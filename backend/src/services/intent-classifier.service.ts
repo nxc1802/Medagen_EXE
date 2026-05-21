@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { INTENT_CLASSIFICATION_PROMPT } from '../config/prompts.js';
 
 export type IntentType = 'triage' | 'disease_info' | 'symptom_inquiry' | 'general_health' | 'out_of_scope' | 'casual_greeting';
 
@@ -20,6 +21,12 @@ export interface Intent {
  * Phân loại ý định của user theo spec AI-Agent.md
  */
 export class IntentClassifierService {
+  private llm?: any;
+
+  constructor(llm?: any) {
+    this.llm = llm;
+  }
+
   // Keywords for different intents
   private readonly TRIAGE_KEYWORDS = [
     'đau', 'sốt', 'chảy máu', 'khó thở', 'nôn', 'buồn nôn',
@@ -52,11 +59,43 @@ export class IntentClassifierService {
   /**
    * Classify user intent based on query text
    */
-  classifyIntent(query: string, hasImage: boolean = false): Intent {
+  async classifyIntent(query: string, hasImage: boolean = false, context?: string): Promise<Intent> {
     const lowerQuery = query.toLowerCase().trim();
     
     logger.info(`Classifying intent for query: "${query.substring(0, 50)}..."`);
 
+    // Gold Standard 1: LLM-Based Intent Classification
+    if (this.llm) {
+      try {
+        const prompt = INTENT_CLASSIFICATION_PROMPT
+          .replace('{context}', context || 'Không có')
+          .replace('{query}', query)
+          .replace('{hasImage}', hasImage ? 'Có hình ảnh y tế được gửi kèm' : 'Không gửi kèm hình ảnh');
+
+        const responseMessage = await this.llm.invoke(prompt);
+        const responseText = typeof responseMessage.content === 'string'
+          ? responseMessage.content
+          : JSON.stringify(responseMessage.content);
+
+        // Standardize and clean the response text to extract valid JSON block
+        const jsonStart = responseText.indexOf('{');
+        const jsonEnd = responseText.lastIndexOf('}');
+        
+        if (jsonStart >= 0 && jsonEnd >= 0) {
+          const jsonContent = responseText.substring(jsonStart, jsonEnd + 1);
+          const parsed = JSON.parse(jsonContent) as Intent;
+          
+          if (parsed && parsed.type) {
+            logger.info(`[INTENT] LLM classified intent successfully: ${parsed.type} (confidence: ${parsed.confidence})`);
+            return parsed;
+          }
+        }
+      } catch (error) {
+        logger.error({ error }, 'Failed to classify intent using LLM, falling back to rule-based classification.');
+      }
+    }
+
+    // Fallback: Rule-Based Intent Classification
     // PRIORITY 1: If has image, ALWAYS triage (unless it's clearly just a greeting)
     if (hasImage) {
       // Only treat as casual greeting if it's VERY short and clearly just greeting
@@ -82,25 +121,38 @@ export class IntentClassifierService {
       };
     }
 
-    // PRIORITY 3: Check for triage keywords/symptoms (personal health concerns)
-    // If has clear symptoms, it's triage (not casual greeting)
+    // PRIORITY 3: Check if it's purely a casual greeting first
+    // This avoids classifying a simple greeting like "xin chào" or "cảm ơn" as triage or disease info
+    if (this.isCasualGreeting(lowerQuery) && lowerQuery.length <= 15) {
+      return {
+        type: 'casual_greeting',
+        confidence: 0.95,
+        entities: {},
+        needsClarification: false
+      };
+    }
+
+    // PRIORITY 4: Check for disease info with explicit educational markers
+    // Educational question markers indicate search for information rather than personal diagnosis
+    const eduMarkers = ['là gì', 'như thế nào', 'giải thích', 'cho tôi biết', 'thông tin về', 'tìm hiểu về', 'định nghĩa', 'tại sao', 'nguyên nhân', 'cơ chế', 'phòng ngừa', 'phòng tránh'];
+    const hasEduMarker = eduMarkers.some(marker => lowerQuery.includes(marker));
+    const diseaseMatches = this.calculateKeywordScore(lowerQuery, this.DISEASE_INFO_KEYWORDS) > 0;
+    
+    if (hasEduMarker || (diseaseMatches && lowerQuery.includes('bệnh'))) {
+      logger.info('[AGENT] Educational markers detected. Selecting disease_info intent.');
+      return this.classifyDiseaseInfoIntent(lowerQuery);
+    }
+
+    // PRIORITY 5: Check for triage (personal health concerns / symptoms)
     const hasTriageKeywords = this.calculateKeywordScore(lowerQuery, this.TRIAGE_KEYWORDS) > 0;
     const hasSymptoms = this.extractSymptoms(lowerQuery).length > 0;
     const hasPersonalPronouns = this.hasPersonalPronouns(lowerQuery);
     
-    // If has symptoms or triage keywords, it's triage
-    if (hasTriageKeywords || hasSymptoms || (hasPersonalPronouns && lowerQuery.length > 15)) {
+    if (hasTriageKeywords || hasSymptoms || (hasPersonalPronouns && lowerQuery.length > 12)) {
       return this.classifyTriageIntent(lowerQuery, hasImage);
     }
 
-    // PRIORITY 4: Check for disease info keywords (educational)
-    const diseaseInfoScore = this.calculateKeywordScore(lowerQuery, this.DISEASE_INFO_KEYWORDS);
-    
-    if (diseaseInfoScore > 0.2) {
-      return this.classifyDiseaseInfoIntent(lowerQuery);
-    }
-
-    // PRIORITY 5: Check for casual greeting (only if no symptoms/keywords found)
+    // PRIORITY 6: Check for casual greeting (fallback longer greeting)
     if (this.isCasualGreeting(lowerQuery)) {
       return {
         type: 'casual_greeting',
@@ -110,13 +162,12 @@ export class IntentClassifierService {
       };
     }
 
-    // PRIORITY 6: Default fallback
-    // If has personal pronouns but unclear, default to triage for safety
+    // PRIORITY 7: Default fallback
     if (hasPersonalPronouns) {
       return this.classifyTriageIntent(lowerQuery, hasImage);
     }
     
-    // Otherwise, default to disease info for educational queries
+    // Otherwise, default to disease info for general queries
     return this.classifyDiseaseInfoIntent(lowerQuery);
   }
 

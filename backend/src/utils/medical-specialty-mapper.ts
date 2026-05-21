@@ -176,7 +176,16 @@ export function calculateSpecialtyMatchScore(
     }
   }
   
-  // General hospitals get lower score
+  // If it matches a specific specialty but is a general hospital, return 0.8 instead of overriding to 0.3
+  if (maxScore === 1.0 && (lowerName.includes('đa khoa') || lowerName.includes('general'))) {
+    return 0.8;
+  }
+
+  if (maxScore === 1.0) {
+    return 1.0;
+  }
+  
+  // General hospitals get lower score if they DO NOT match a specific specialty
   if (lowerName.includes('đa khoa') || lowerName.includes('general')) {
     return 0.3;
   }

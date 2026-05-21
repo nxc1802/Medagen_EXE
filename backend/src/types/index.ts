@@ -35,7 +35,7 @@ export interface SuspectedCondition {
 }
 
 export interface CVFindings {
-  model_used: "derm_cv" | "eye_cv" | "wound_cv" | "none";
+  model_used: "derm_cv" | "eye_cv" | "wound_cv" | "teeth_cv" | "nail_cv" | "none";
   raw_output: Record<string, any>;
 }
 

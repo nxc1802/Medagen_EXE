@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS guideline_chunks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   guideline_id uuid REFERENCES guidelines(id) ON DELETE CASCADE,
   content text NOT NULL, -- LangChain requires 'content' column name
-  embedding vector(768), -- Gemini embedding-004 dimension
+  embedding vector(1024), -- NVIDIA Llama Nemotron Embed 1B Matryoshka dimension
   metadata jsonb,
   created_at timestamp with time zone DEFAULT now()
 );
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS medical_knowledge_chunks (
   section_title text, -- e.g., "ĐẠI CƯƠNG", "NGUYÊN NHÂN"
   content text NOT NULL,
   path text, -- relative path to source file
-  embedding vector(768), -- Gemini embedding-004 dimension
+  embedding vector(1024), -- NVIDIA Llama Nemotron Embed 1B Matryoshka dimension
   created_at timestamp with time zone DEFAULT now()
 );
 
@@ -179,7 +179,7 @@ CREATE INDEX IF NOT EXISTS idx_comprehensive_reports_generated_at ON comprehensi
 DROP FUNCTION IF EXISTS match_guideline_chunks(vector, double precision, integer);
 
 CREATE FUNCTION match_guideline_chunks(
-  query_embedding vector(768),
+  query_embedding vector(1024),
   match_threshold float DEFAULT 0.5,
   match_count int DEFAULT 5
 )
@@ -209,7 +209,7 @@ DROP FUNCTION IF EXISTS match_medical_knowledge(vector, double precision, intege
 DROP FUNCTION IF EXISTS match_medical_knowledge(vector, double precision, integer, text, text, uuid, uuid, uuid);
 
 CREATE FUNCTION match_medical_knowledge(
-  query_embedding vector(768),
+  query_embedding vector(1024),
   match_threshold float DEFAULT 0.5,
   match_count int DEFAULT 5,
   filter_specialty text DEFAULT NULL,

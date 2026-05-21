@@ -55,16 +55,28 @@ export class CVService {
     return await this.callCVAPI(imageUrl, 'dermnet', 3);
   }
 
+  async callTeethCV(imageUrl: string): Promise<CVResult> {
+    return await this.callCVAPI(imageUrl, 'teeth', 3);
+  }
+
+  async callNailCV(imageUrl: string): Promise<CVResult> {
+    return await this.callCVAPI(imageUrl, 'nail', 3);
+  }
+
   async callEyeCV(imageUrl: string): Promise<CVResult> {
-    return await this.callCVAPI(imageUrl, 'dermnet', 3); // using dermnet for eyes as original
+    logger.warn('[MCP CV] Eye CV requested, but no trained eye-specific model exists. Falling back to dermnet model as controlled fallback.');
+    return await this.callCVAPI(imageUrl, 'dermnet', 3);
   }
 
   async callWoundCV(imageUrl: string): Promise<CVResult> {
-    return await this.callCVAPI(imageUrl, 'dermnet', 3); // using dermnet for wounds as original
+    logger.warn('[MCP CV] Wound CV requested, but no trained wound-specific model exists. Falling back to dermnet model as controlled fallback.');
+    return await this.callCVAPI(imageUrl, 'dermnet', 3);
   }
 
-  async analyzeImage(imageUrl: string, type?: 'derm' | 'eye' | 'wound'): Promise<CVResult> {
+  async analyzeImage(imageUrl: string, type?: 'derm' | 'eye' | 'wound' | 'teeth' | 'nail'): Promise<CVResult> {
     if (type === 'derm') return this.callDermCV(imageUrl);
+    if (type === 'teeth') return this.callTeethCV(imageUrl);
+    if (type === 'nail') return this.callNailCV(imageUrl);
     if (type === 'eye') return this.callEyeCV(imageUrl);
     if (type === 'wound') return this.callWoundCV(imageUrl);
     return { top_conditions: [] };

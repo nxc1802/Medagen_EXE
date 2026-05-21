@@ -56,7 +56,7 @@ export class WebSocketConnectionManager {
       this.removeConnection(sessionId);
     });
 
-    ws.on('error', (error) => {
+    ws.on('error', (error: any) => {
       logger.error({ error, sessionId }, 'WebSocket error');
       this.removeConnection(sessionId);
     });

@@ -96,3 +96,59 @@ export function createWoundCVTool(cvService: CVService): DynamicTool {
   });
 }
 
+export function createTeethCVTool(cvService: CVService): DynamicTool {
+  return new DynamicTool({
+    name: 'teeth_cv',
+    description: 
+      'Use this to analyze dental/teeth and mouth-related images (toothache, mouth ulcer, dental issues). ' +
+      'Input must be a public image URL string. Returns top predicted dental/mouth conditions with probabilities.',
+    func: async (input: string) => {
+      try {
+        logger.info('Tool teeth_cv called');
+        const url = input.split('\n')[0].trim();
+        
+        logger.info(`Processing image URL: ${url}`);
+        const result = await cvService.callTeethCV(url);
+        
+        const top_predictions = result.top_conditions.map(c => ({
+          condition: c.name,
+          probability: c.prob
+        }));
+        
+        return JSON.stringify({ top_predictions });
+      } catch (error) {
+        logger.error({ error }, 'teeth_cv tool error');
+        return JSON.stringify({ error: 'Failed to analyze dental image', top_predictions: [] });
+      }
+    }
+  });
+}
+
+export function createNailCVTool(cvService: CVService): DynamicTool {
+  return new DynamicTool({
+    name: 'nail_cv',
+    description: 
+      'Use this to analyze fingernail or toenail related images (nail fungus, nail discoloration, nail conditions). ' +
+      'Input must be a public image URL string. Returns top predicted nail conditions with probabilities.',
+    func: async (input: string) => {
+      try {
+        logger.info('Tool nail_cv called');
+        const url = input.split('\n')[0].trim();
+        
+        logger.info(`Processing image URL: ${url}`);
+        const result = await cvService.callNailCV(url);
+        
+        const top_predictions = result.top_conditions.map(c => ({
+          condition: c.name,
+          probability: c.prob
+        }));
+        
+        return JSON.stringify({ top_predictions });
+      } catch (error) {
+        logger.error({ error }, 'nail_cv tool error');
+        return JSON.stringify({ error: 'Failed to analyze nail image', top_predictions: [] });
+      }
+    }
+  });
+}
+
