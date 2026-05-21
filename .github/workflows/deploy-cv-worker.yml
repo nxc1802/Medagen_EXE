@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'cv-worker/**'
+      - '.github/workflows/deploy-cv-worker.yml'
 
 jobs:
   deploy:
