@@ -132,6 +132,26 @@ CREATE TABLE IF NOT EXISTS comprehensive_reports (
   created_at timestamp with time zone DEFAULT now()
 );
 
+-- 12. Create health_profiles table
+CREATE TABLE IF NOT EXISTS health_profiles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL UNIQUE,
+  full_name text,
+  date_of_birth date,
+  gender text CHECK (gender IN ('male', 'female', 'other')),
+  height_cm numeric(5,1),
+  weight_kg numeric(5,1),
+  blood_type text CHECK (blood_type IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown')),
+  chronic_diseases text[],
+  past_surgeries text[],
+  drug_allergies text[],
+  food_allergies text[],
+  current_medications jsonb,
+  emergency_contact jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
 -- ===================== CREATE INDEXES =====================
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
@@ -172,6 +192,8 @@ CREATE INDEX IF NOT EXISTS idx_tool_executions_created_at ON tool_executions(cre
 CREATE INDEX IF NOT EXISTS idx_comprehensive_reports_session_id ON comprehensive_reports(session_id);
 CREATE INDEX IF NOT EXISTS idx_comprehensive_reports_user_id ON comprehensive_reports(user_id);
 CREATE INDEX IF NOT EXISTS idx_comprehensive_reports_generated_at ON comprehensive_reports(generated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_health_profiles_user_id ON health_profiles(user_id);
 
 -- ===================== CREATE FUNCTIONS =====================
 
@@ -270,6 +292,7 @@ GRANT ALL ON TABLE conversation_sessions TO service_role;
 GRANT ALL ON TABLE conversation_history TO service_role;
 GRANT ALL ON TABLE tool_executions TO service_role;
 GRANT ALL ON TABLE comprehensive_reports TO service_role;
+GRANT ALL ON TABLE health_profiles TO service_role;
 
 -- Grant permissions to anon role (for backend using anon key)
 GRANT SELECT, INSERT, UPDATE ON TABLE conversation_sessions TO anon;
@@ -277,6 +300,7 @@ GRANT SELECT, INSERT, UPDATE ON TABLE conversation_history TO anon;
 GRANT SELECT, INSERT ON TABLE sessions TO anon;
 GRANT SELECT, INSERT ON TABLE tool_executions TO anon;
 GRANT SELECT, INSERT ON TABLE comprehensive_reports TO anon;
+GRANT SELECT, INSERT, UPDATE ON TABLE health_profiles TO anon;
 GRANT SELECT ON TABLE guidelines TO anon;
 GRANT SELECT ON TABLE guideline_chunks TO anon;
 GRANT SELECT ON TABLE specialties TO anon;
@@ -305,6 +329,7 @@ ALTER TABLE conversation_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comprehensive_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE health_profiles ENABLE ROW LEVEL SECURITY;
 
 -- 1. Guidelines Policies
 DROP POLICY IF EXISTS "Service role can access all guidelines" ON guidelines;
@@ -410,6 +435,16 @@ CREATE POLICY "Allow anonymous access to reports" ON comprehensive_reports FOR A
 DROP POLICY IF EXISTS "Users can access own reports" ON comprehensive_reports;
 CREATE POLICY "Users can access own reports" ON comprehensive_reports FOR ALL TO authenticated USING (auth.uid()::text = user_id);
 
+-- Health Profiles Policies
+DROP POLICY IF EXISTS "Service role can access all health profiles" ON health_profiles;
+CREATE POLICY "Service role can access all health profiles" ON health_profiles FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can manage own health profile" ON health_profiles;
+CREATE POLICY "Users can manage own health profile" ON health_profiles FOR ALL TO authenticated USING (auth.uid()::text = user_id) WITH CHECK (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Allow anonymous access to health profiles" ON health_profiles;
+CREATE POLICY "Allow anonymous access to health profiles" ON health_profiles FOR ALL TO anon USING (true) WITH CHECK (true);
+
 -- ===================== SEED DATA =====================
 
 -- Insert default specialties
@@ -433,3 +468,43 @@ INSERT INTO info_domains (name, name_en, order_index, description) VALUES
   ('Tiên lượng', 'Prognosis', 8, 'Tiên lượng và diễn biến bệnh'),
   ('Phòng bệnh', 'Prevention', 9, 'Biện pháp phòng ngừa và dự phòng')
 ON CONFLICT (name) DO NOTHING;
+
+-- ===================== v2.0 ADDITIONS (2026-05-28) =====================
+
+-- user_medical_history: stores individual medical history records per user
+-- (distinct from health_profiles which stores aggregate info)
+CREATE TABLE IF NOT EXISTS user_medical_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,             -- auth.uid()::text for compatibility with service role inserts
+  condition_name text NOT NULL,
+  is_chronic boolean DEFAULT false,
+  diagnosed_date date,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_medical_history_user_id ON user_medical_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_medical_history_created_at ON user_medical_history(created_at DESC);
+
+ALTER TABLE user_medical_history ENABLE ROW LEVEL SECURITY;
+
+-- Service role (backend) has full access
+CREATE POLICY "Service role can access all user medical history"
+  ON user_medical_history FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
+-- Authenticated users can only manage their own records
+CREATE POLICY "Users can manage own medical history"
+  ON user_medical_history FOR ALL TO authenticated
+  USING (auth.uid()::text = user_id)
+  WITH CHECK (auth.uid()::text = user_id);
+
+-- Anonymous access for demo purposes (public v1 API)
+CREATE POLICY "Allow anonymous access to user medical history"
+  ON user_medical_history FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+GRANT ALL ON TABLE user_medical_history TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE user_medical_history TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE user_medical_history TO authenticated;
+

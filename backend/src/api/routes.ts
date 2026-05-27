@@ -1,17 +1,26 @@
 import type { FastifyInstance } from 'fastify';
-import { SupabaseService } from '../services/supabase.service.js';
-import { ConversationHistoryService } from '../services/conversation-history.service.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
 import { MedagenAgent } from '../agent/agent-executor.js';
+import { SupabaseService } from '../services/supabase.service.js';
+import { CarePlanService } from '../services/care-plan.service.js';
+import { ConversationHistoryService } from '../services/conversation-history.service.js';
 import { wsConnectionManager } from '../services/websocket.service.js';
-import { logger } from '../utils/logger.js';
 import { TriageRulesService } from '../services/triage-rules.service.js';
-import type { HealthCheckRequest } from '../types/index.js';
+import type { HealthCheckRequest, HealthProfile } from '../types/index.js';
+import { logger } from '../utils/logger.js';
 
 export async function registerRoutes(fastify: FastifyInstance) {
   const supabaseService = new SupabaseService();
-  const conversationService = new ConversationHistoryService(supabaseService.getClient());
+  const agent = new MedagenAgent(supabaseService);
+  const carePlanService = new CarePlanService(supabaseService);
+  const chatService = new ConversationHistoryService(supabaseService.getClient());
+  const conversationService = chatService; // Alias for backward compatibility with v1 API
 
-  // 1. POST /api/v1/sessions - Create or get a session
+  // ==========================================
+  // 1. WebSocket & REST APIs (from main branch)
+  // ==========================================
+
+  // POST /api/v1/sessions - Create or get a session
   fastify.post('/api/v1/sessions', async (request, reply) => {
     try {
       const { user_id } = request.body as { user_id: string };
@@ -37,7 +46,7 @@ export async function registerRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 2. GET /api/v1/sessions/:session_id/history - Get conversation history
+  // GET /api/v1/sessions/:session_id/history - Get conversation history
   fastify.get('/api/v1/sessions/:session_id/history', async (request, reply) => {
     try {
       const { session_id } = request.params as { session_id: string };
@@ -70,10 +79,10 @@ export async function registerRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 3. POST /api/v1/triage - Single-turn triage REST API
+  // POST /api/v1/triage - Single-turn triage REST API
   fastify.post('/api/v1/triage', async (request, reply) => {
     try {
-      const body = request.body as HealthCheckRequest & { input_text?: string };
+      const body = request.body as HealthCheckRequest & { input_text?: string; user_id: string };
       const userId = body.user_id;
       const userText = body.text || body.input_text || '';
       const imageUrl = body.image_url;
@@ -95,10 +104,9 @@ export async function registerRoutes(fastify: FastifyInstance) {
 
       logger.info(`REST Triage request received from user: ${userId}`);
 
-      const agent = new MedagenAgent(supabaseService);
       await agent.initialize();
 
-      // Execute triage synchronously - passing userId, undefined (for context), and location in correct order
+      // Execute triage synchronously
       const result = await agent.processTriage(userText, imageUrl, userId, undefined, location);
 
       // Save session in database for history tracking
@@ -110,14 +118,10 @@ export async function registerRoutes(fastify: FastifyInstance) {
         location
       });
 
-      // Map triage level display y như Next.js specs
-      let levelCode = 'GREEN';
       let levelDisplay = 'MÀU XANH LÁ (Tự chăm sóc / Khám thường)';
       if (result.triage_level === 'emergency') {
-        levelCode = 'RED';
         levelDisplay = 'MÀU ĐỎ (Nguy cấp - Cần cấp cứu ngay)';
       } else if (result.triage_level === 'urgent') {
-        levelCode = 'YELLOW';
         levelDisplay = 'MÀU VÀNG (Cần theo dõi / Khám sớm)';
       }
 
@@ -126,7 +130,10 @@ export async function registerRoutes(fastify: FastifyInstance) {
         triage_level: levelDisplay,
         analysis: {
           suspected_condition: result.suspected_conditions?.[0]?.name || 'Chưa xác định cụ thể',
-          cv_results: result.cv_findings?.raw_output?.top_predictions || [],
+          cv_results: (result.cv_findings?.raw_output?.top_predictions || []).map((p: any) => ({
+            condition: p.condition || p.name,
+            probability: p.probability ?? p.prob ?? 0
+          })),
           explanation: result.symptom_summary || 'Không có mô tả',
           recommendations: [
             result.recommendation?.action,
@@ -152,7 +159,7 @@ export async function registerRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 4. GET /api/v1/chat - WebSocket Chat Stream for ReAct Agent
+  // GET /api/v1/chat - WebSocket Chat Stream for ReAct Agent
   fastify.get('/api/v1/chat', { websocket: true }, (connection: any, req: any) => {
     const query = req.query as { session_id?: string; user_id?: string };
     const sessionId = query.session_id;
@@ -168,7 +175,6 @@ export async function registerRoutes(fastify: FastifyInstance) {
       return;
     }
 
-    // Register active socket connection
     wsConnectionManager.addConnection(sessionId, connection.socket);
 
     connection.socket.on('message', async (rawMessage: any) => {
@@ -182,14 +188,10 @@ export async function registerRoutes(fastify: FastifyInstance) {
         const { text, image_url: imageUrl, location } = payload.data;
         logger.info(`Received WS message in session ${sessionId}: "${text?.substring(0, 40)}..."`);
 
-        // Save User Message to Database
         await conversationService.addUserMessage(sessionId, userId, text, imageUrl);
 
-        // Fetch recent context history
         const context = await conversationService.getContextString(sessionId, 5);
 
-        // --- GOLD STANDARD 3: Triage-First Rendering (< 50ms) ---
-        // Run rules engine thô (~2ms) and immediately shoot initial triage_result event to client
         const triageRulesService = new TriageRulesService();
         const fastTriage = triageRulesService.evaluateSymptoms({
           symptoms: {
@@ -220,13 +222,11 @@ export async function registerRoutes(fastify: FastifyInstance) {
           }
         }));
 
-        // 1. Initial Thought Message
         connection.socket.send(JSON.stringify({
           event: 'agent_response',
           data: { text: 'Tôi đang tiếp nhận thông tin và phân tích triệu chứng của bạn, xin vui lòng đợi trong giây lát...' }
         }));
 
-        // Trigger ReAct streaming thoughts simulated step-by-step
         setTimeout(() => {
           connection.socket.send(JSON.stringify({
             event: 'thought',
@@ -238,11 +238,8 @@ export async function registerRoutes(fastify: FastifyInstance) {
           }));
         }, 300);
 
-        // Initialize agent
-        const agent = new MedagenAgent(supabaseService);
         await agent.initialize();
 
-        // 2. Image Analysis Tool Execution (if image provided)
         if (imageUrl) {
           setTimeout(() => {
             connection.socket.send(JSON.stringify({
@@ -257,8 +254,6 @@ export async function registerRoutes(fastify: FastifyInstance) {
           }, 800);
         }
 
-        // --- GOLD STANDARD 4: Token Streaming ---
-        // Run full agent loop - passing callback to send chunks in real-time
         const result = await agent.processTriage(
           text,
           imageUrl,
@@ -275,14 +270,12 @@ export async function registerRoutes(fastify: FastifyInstance) {
           }
         );
 
-        // Save Assistant response to history
         const finalMessage = result.message || 'Chẩn đoán hoàn tất.';
         await conversationService.addAssistantMessage(sessionId, userId, finalMessage, {
           triage_level: result.triage_level,
           suspected_conditions: result.suspected_conditions
         });
 
-        // 3. Send CV results event if image was analyzed
         if (imageUrl && result.cv_findings && result.cv_findings.model_used !== 'none') {
           const modelUsed = result.cv_findings.model_used;
           const predictions = result.cv_findings.raw_output?.top_predictions?.map((p: any) => ({
@@ -299,7 +292,6 @@ export async function registerRoutes(fastify: FastifyInstance) {
           }));
         }
 
-        // 4. Send final Triage result to sync colors precisely
         let levelCode = 'GREEN';
         let levelDisplay = 'MÀU XANH LÁ (Tự chăm sóc / Khám thường)';
         if (result.triage_level === 'emergency') {
@@ -324,7 +316,6 @@ export async function registerRoutes(fastify: FastifyInstance) {
           }
         }));
 
-        // 5. Send final agent text response (full message)
         connection.socket.send(JSON.stringify({
           event: 'agent_response',
           data: {
@@ -344,5 +335,291 @@ export async function registerRoutes(fastify: FastifyInstance) {
     connection.socket.on('close', () => {
       wsConnectionManager.removeConnection(sessionId);
     });
+  });
+
+  // ==========================================
+  // 2. React Frontend REST APIs (from feature branch)
+  // ==========================================
+
+  // POST /api/analyze — run AI triage on symptoms + optional image
+  fastify.post<{ Body: HealthCheckRequest }>('/api/analyze', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { text, image_url, session_id, location, language } = request.body;
+      const { user_id } = (request as any).user;
+
+      if (!text && !image_url) {
+        return reply.status(400).send({ error: 'text or image_url is required' });
+      }
+
+      try {
+        logger.info({ user_id, has_image: !!image_url }, 'Starting AI analysis');
+
+        const [healthProfile, chatSessionId] = await Promise.all([
+          supabaseService.getHealthProfile(user_id).catch(() => null),
+          chatService.getOrCreateSession(user_id, session_id),
+        ]);
+
+        await chatService.addUserMessage(chatSessionId, user_id, text, image_url).catch(() => null);
+
+        const conversationContext = await chatService.getContextString(chatSessionId, 6).catch(() => undefined);
+
+        await agent.initialize();
+
+        const result = await agent.processTriage(
+          text || '',
+          image_url,
+          user_id,
+          conversationContext,
+          location,
+          healthProfile,
+          language
+        );
+
+        await chatService.addAssistantMessage(
+          chatSessionId,
+          user_id,
+          result.message || result.recommendation?.action || '',
+          result
+        ).catch(() => null);
+
+        try {
+          await supabaseService.saveSession({
+            user_id,
+            input_text: text || '',
+            image_url,
+            triage_result: result,
+            location,
+          });
+        } catch (saveErr) {
+          logger.warn({ saveErr }, 'Failed to save session — continuing');
+        }
+
+        return reply.send({ ...result, session_id: chatSessionId });
+      } catch (error) {
+        logger.error({ error }, 'Analysis failed');
+        return reply.status(500).send({ error: 'Analysis failed. Please try again.' });
+      }
+    },
+  });
+
+  // GET /api/sessions — list caller's sessions for Care Plan history
+  fastify.get('/api/sessions', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      try {
+        const sessions = await supabaseService.getUserSessions(user_id);
+        return reply.send({ sessions });
+      } catch (error) {
+        logger.error({ error }, 'Failed to fetch sessions');
+        return reply.status(500).send({ error: 'Failed to fetch sessions' });
+      }
+    },
+  });
+
+  // GET /api/care-plan — lấy care plan đang active của user
+  fastify.get('/api/care-plan', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      try {
+        const plan = await supabaseService.getActiveCarePlan(user_id);
+        return reply.send({ plan });
+      } catch (error) {
+        logger.error({ error }, 'Failed to fetch care plan');
+        return reply.status(500).send({ error: 'Failed to fetch care plan' });
+      }
+    },
+  });
+
+  // POST /api/care-plan — generate care plan mới bằng Gemini dựa trên lịch sử sessions
+  fastify.post('/api/care-plan', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      try {
+        logger.info({ user_id }, 'Generating new care plan');
+        const plan = await carePlanService.generateAndSave(user_id);
+        return reply.send({ plan });
+      } catch (error: any) {
+        logger.error({ error }, 'Failed to generate care plan');
+        const msg = error?.message || 'Failed to generate care plan';
+        return reply.status(500).send({ error: msg });
+      }
+    },
+  });
+
+  // POST /api/upload — upload image via backend (service key bypasses storage RLS)
+  fastify.post<{ Body: { base64: string; contentType: string; fileName: string } }>('/api/upload', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      const { base64, contentType, fileName } = request.body;
+
+      if (!base64 || !contentType) {
+        return reply.status(400).send({ error: 'base64 and contentType are required' });
+      }
+
+      try {
+        const buffer = Buffer.from(base64, 'base64');
+        const ext = fileName?.split('.').pop() || contentType.split('/')[1] || 'jpg';
+        const path = `${user_id}/${Date.now()}.${ext}`;
+
+        const { error } = await supabaseService.getClient()
+          .storage
+          .from('medical-images')
+          .upload(path, buffer, { contentType, upsert: false });
+
+        if (error) throw error;
+
+        const { data } = supabaseService.getClient()
+          .storage
+          .from('medical-images')
+          .getPublicUrl(path);
+
+        return reply.send({ url: data.publicUrl });
+      } catch (error: any) {
+        logger.error({ error }, 'Upload failed');
+        return reply.status(500).send({ error: error.message || 'Upload failed' });
+      }
+    },
+  });
+
+  // GET /api/health-profile — get current user's health profile
+  fastify.get('/api/health-profile', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      try {
+        const profile = await supabaseService.getHealthProfile(user_id);
+        return reply.send({ profile });
+      } catch (error) {
+        logger.error({ error }, 'Failed to fetch health profile');
+        return reply.status(500).send({ error: 'Failed to fetch health profile' });
+      }
+    },
+  });
+
+  // PUT /api/health-profile — create or update health profile
+  fastify.put<{ Body: Omit<HealthProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'> }>('/api/health-profile', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      try {
+        const profile = await supabaseService.upsertHealthProfile(user_id, request.body);
+        return reply.send({ profile });
+      } catch (error) {
+        logger.error({ error }, 'Failed to save health profile');
+        return reply.status(500).send({ error: 'Failed to save health profile' });
+      }
+    },
+  });
+
+  // GET /api/chat/:sessionId/history — conversation history for a chat session
+  fastify.get<{ Params: { sessionId: string } }>('/api/chat/:sessionId/history', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      const { sessionId } = request.params;
+      try {
+        const session = await supabaseService.getClient()
+          .from('conversation_sessions')
+          .select('id')
+          .eq('id', sessionId)
+          .eq('user_id', user_id)
+          .maybeSingle();
+        if (!session.data) {
+          return reply.status(404).send({ error: 'Session not found' });
+        }
+        const history = await chatService.getHistory(sessionId, 50);
+        return reply.send({ history });
+      } catch (error) {
+        logger.error({ error }, 'Failed to fetch chat history');
+        return reply.status(500).send({ error: 'Failed to fetch chat history' });
+      }
+    },
+  });
+
+  // POST /api/chat/:sessionId — follow-up message in an existing session
+  fastify.post<{
+    Params: { sessionId: string };
+    Body: { text: string; image_url?: string; location?: { lat: number; lng: number } };
+  }>('/api/chat/:sessionId', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      const { sessionId } = request.params;
+      const { text, image_url, location } = request.body;
+
+      if (!text && !image_url) {
+        return reply.status(400).send({ error: 'text or image_url is required' });
+      }
+
+      try {
+        const { data: session } = await supabaseService.getClient()
+          .from('conversation_sessions')
+          .select('id')
+          .eq('id', sessionId)
+          .eq('user_id', user_id)
+          .maybeSingle();
+        if (!session) {
+          return reply.status(404).send({ error: 'Session not found' });
+        }
+
+        const [healthProfile, conversationContext] = await Promise.all([
+          supabaseService.getHealthProfile(user_id).catch(() => null),
+          chatService.getContextString(sessionId, 6),
+        ]);
+
+        await chatService.addUserMessage(sessionId, user_id, text, image_url).catch(() => null);
+
+        const result = await agent.processTriage(
+          text || '',
+          image_url,
+          user_id,
+          conversationContext,
+          location,
+          healthProfile
+        );
+
+        await chatService.addAssistantMessage(
+          sessionId,
+          user_id,
+          result.message || result.recommendation?.action || '',
+          result
+        ).catch(() => null);
+
+        return reply.send({ ...result, session_id: sessionId });
+      } catch (error) {
+        logger.error({ error }, 'Follow-up chat failed');
+        return reply.status(500).send({ error: 'Failed to process message' });
+      }
+    },
+  });
+
+  // GET /api/sessions/:id — single session detail (ownership enforced)
+  fastify.get<{ Params: { id: string } }>('/api/sessions/:id', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { user_id } = (request as any).user;
+      try {
+        const { data: session, error } = await supabaseService.getClient()
+          .from('sessions')
+          .select('*')
+          .eq('id', request.params.id)
+          .eq('user_id', user_id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!session) {
+          return reply.status(404).send({ error: 'Session not found' });
+        }
+        return reply.send(session);
+      } catch (error) {
+        logger.error({ error }, 'Failed to fetch session');
+        return reply.status(500).send({ error: 'Failed to fetch session' });
+      }
+    },
   });
 }

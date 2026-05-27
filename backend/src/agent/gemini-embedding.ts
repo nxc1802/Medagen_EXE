@@ -2,6 +2,25 @@ import { Embeddings } from '@langchain/core/embeddings';
 import { EmbeddingFactory, type EmbeddingProvider } from '../providers/embedding.factory.js';
 import { logger } from '../utils/logger.js';
 
+async function retryEmbed<T>(fn: () => Promise<T>): Promise<T> {
+  const delays = [15000, 30000, 60000];
+  for (let i = 0; i <= delays.length; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const status = err?.status ?? err?.response?.status;
+      const retriable = status === 429 || status === 503 || status === 404;
+      if (retriable && i < delays.length) {
+        logger.warn(`[GeminiEmbedding] HTTP ${status} — retrying in ${delays[i] / 1000}s (attempt ${i + 1})`);
+        await new Promise(r => setTimeout(r, delays[i]));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error('GeminiEmbedding: max retries exceeded');
+}
+
 export class GeminiEmbedding extends Embeddings {
   private delegate: Embeddings;
 

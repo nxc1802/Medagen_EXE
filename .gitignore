@@ -30,3 +30,9 @@ coverage/
 
 # Note: Model weights (.pth) are tracked via Git LFS or direct push as per requirement
 # *.pth 
+
+# Models
+cv-worker/models/best_medagen_swin_convnext_cbam_23classes.pth
+cv-worker/models/resnet18_cbam_teeth_best.pth
+cv-worker/models/resnet18_cbam_nail_best.pth
+

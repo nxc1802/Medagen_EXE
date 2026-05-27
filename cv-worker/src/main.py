@@ -7,6 +7,7 @@ import os
 import logging
 from PIL import Image
 from contextlib import asynccontextmanager
+import asyncio
 from src.services.inference import predict, MODEL_CONFIGS, load_model, loaded_models
 
 # Configure logging
@@ -24,17 +25,21 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
             raise HTTPException(status_code=401, detail="Unauthorized: Invalid API Key")
     return api_key
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup Phase: Preload all PyTorch models into memory (RAM/GPU)
-    logger.info("Initializing CV Worker, preloading models to memory...")
+async def preload_models_background():
+    # Run PyTorch model loading in a background thread so it doesn't block the event loop
     for model_name in MODEL_CONFIGS.keys():
         try:
             logger.info(f"Loading weights for model: {model_name}...")
-            load_model(model_name)
+            await asyncio.to_thread(load_model, model_name)
             logger.info(f"Model [{model_name}] preloaded successfully.")
         except Exception as e:
             logger.error(f"Failed to preload model [{model_name}]: {str(e)}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup Phase: Schedule background model loading
+    logger.info("Initializing CV Worker, scheduling models to load in background...")
+    asyncio.create_task(preload_models_background())
     yield
     # Shutdown Phase: Clean up loaded models to release memory
     logger.info("Shutting down CV Worker, releasing loaded model resources...")
@@ -61,7 +66,12 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "models_configured": list(MODEL_CONFIGS.keys())}
+    return {
+        "status": "ok", 
+        "models_configured": list(MODEL_CONFIGS.keys()),
+        "models_loaded": list(loaded_models.keys()),
+        "ready": len(loaded_models) == len(MODEL_CONFIGS)
+    }
 
 @app.post("/api/v1/predict")
 async def handle_prediction(

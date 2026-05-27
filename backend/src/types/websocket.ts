@@ -141,3 +141,91 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   guideline_retrieval: 'Medical Guidelines',
   rag_query: 'Medical Knowledge Retrieval',
 };
+
+// ── Wire-format WebSocket Events ─────────────────────────────────────────────
+// These match the actual { event, data } structure sent over the WebSocket
+// connection in routes.ts, as opposed to the internal BaseMessage types above.
+
+export type WSEventName =
+  | 'thought'
+  | 'action_start'
+  | 'agent_response_chunk'
+  | 'agent_response'
+  | 'cv_analysis'
+  | 'triage_result'
+  | 'error';
+
+export interface WSThoughtEvent {
+  event: 'thought';
+  data: {
+    type: 'thought';
+    content: string;
+    timestamp: string;
+  };
+}
+
+export interface WSActionStartEvent {
+  event: 'action_start';
+  data: {
+    type: 'action_start';
+    tool_name: string;
+    tool_display_name: string;
+    timestamp: string;
+  };
+}
+
+export interface WSAgentResponseChunkEvent {
+  event: 'agent_response_chunk';
+  data: { text: string };
+}
+
+export interface WSAgentResponseEvent {
+  event: 'agent_response';
+  data: { text: string };
+}
+
+export interface WSCVAnalysisEvent {
+  event: 'cv_analysis';
+  data: {
+    target_area: 'derm' | 'teeth' | 'nail' | 'eye' | 'wound';
+    predictions: Array<{ class: string; confidence: number }>;
+  };
+}
+
+export type WSTriageLevel = 'RED' | 'YELLOW' | 'GREEN';
+
+export interface WSTriageResultEvent {
+  event: 'triage_result';
+  data: {
+    level: WSTriageLevel;
+    level_display: string;
+    suspected_condition?: string;
+    recommendations: string[];
+  };
+}
+
+export interface WSErrorEvent {
+  event: 'error';
+  data: { message: string };
+}
+
+/** Union of all wire-format events sent from server → client */
+export type WSServerEvent =
+  | WSThoughtEvent
+  | WSActionStartEvent
+  | WSAgentResponseChunkEvent
+  | WSAgentResponseEvent
+  | WSCVAnalysisEvent
+  | WSTriageResultEvent
+  | WSErrorEvent;
+
+/** Incoming message from client → server */
+export interface WSClientMessage {
+  event: 'message';
+  data: {
+    text?: string;
+    image_url?: string;
+    location?: { lat: number; lng: number };
+  };
+}
+
