@@ -9,6 +9,7 @@ export interface HealthCheckRequest {
   user_id: string;
   session_id?: string; // For tracking conversation history
   location?: Location;
+  language?: string; // 'en' | 'vi' | 'fr' | 'zh'
 }
 
 export interface ConversationMessage {
@@ -88,6 +89,40 @@ export interface CVResult {
   status?: 'success' | 'out_of_domain' | 'error';
   max_confidence?: number;
   threshold?: number;
+}
+
+export interface CurrentMedication {
+  name: string;
+  dosage?: string;
+  frequency?: string;
+}
+
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
+export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'unknown';
+export type Gender = 'male' | 'female' | 'other';
+
+export interface HealthProfile {
+  id?: string;
+  user_id: string;
+  full_name?: string;
+  date_of_birth?: string;
+  gender?: Gender;
+  height_cm?: number;
+  weight_kg?: number;
+  blood_type?: BloodType;
+  chronic_diseases?: string[];
+  past_surgeries?: string[];
+  drug_allergies?: string[];
+  food_allergies?: string[];
+  current_medications?: CurrentMedication[];
+  emergency_contact?: EmergencyContact;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface GuidelineQuery {

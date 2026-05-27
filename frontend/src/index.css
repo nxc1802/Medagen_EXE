@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+@media print {
+  @page {
+    margin: 1.5cm 1.8cm;
+    size: A4;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: #1e293b;
+    background: #fff;
+  }
+
+  /* collapse flex/min-h-screen so content flows naturally across pages */
+  .min-h-screen, [class*="min-h-screen"] {
+    min-height: 0 !important;
+  }
+
+  .flex-1 {
+    flex: none !important;
+  }
+
+  /* avoid breaking small cards mid-page, but let sections flow */
+  .card-print {
+    break-inside: avoid;
+  }
+}

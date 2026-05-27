@@ -20,8 +20,8 @@ export const config = {
   port: isNaN(port) ? 3000 : port,
   
   gemini: {
-    apiKey: process.env.GEMINI_API_KEY || '',
-    model: 'gemini-2.5-flash',
+    apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
+    model: process.env.GOOGLE_MODEL_NAME || 'gemini-2.5-flash',
     embeddingModel: 'text-embedding-004'
   },
   
@@ -57,7 +57,7 @@ export const config = {
 // Validate required config
 export function validateConfig() {
   const required = [
-    { key: 'GEMINI_API_KEY', value: config.gemini.apiKey },
+    { key: 'GEMINI_API_KEY / GOOGLE_API_KEY', value: config.gemini.apiKey },
     { key: 'SUPABASE_URL', value: config.supabase.url },
     { key: 'SUPABASE_SERVICE_KEY', value: config.supabase.serviceKey }
   ];

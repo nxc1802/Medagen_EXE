@@ -7,7 +7,65 @@ import { SupabaseService } from '../services/supabase.service.js';
 import { MapsService } from '../services/maps.service.js';
 import { IntentClassifierService, type Intent } from '../services/intent-classifier.service.js';
 import { logger } from '../utils/logger.js';
-import type { TriageResult, TriageLevel, ConditionSource, ConditionConfidence, Location, NearestClinic } from '../types/index.js';
+import type { TriageResult, TriageLevel, ConditionSource, ConditionConfidence, Location, NearestClinic, HealthProfile } from '../types/index.js';
+
+const LANG_INSTRUCTION: Record<string, string> = {
+  en: 'IMPORTANT: You MUST respond entirely in English. Do not use Vietnamese.',
+  fr: 'IMPORTANT: Vous DEVEZ répondre entièrement en français. N\'utilisez pas le vietnamien.',
+  zh: 'IMPORTANT: 您必须完全用中文回答。不要使用越南语。',
+  vi: '',
+};
+
+const TIMEFRAME_MAP: Record<string, Record<string, string>> = {
+  en: { emergency: 'Immediately', urgent: 'Within 24 hours', routine: 'When convenient', none: 'Not applicable' },
+  vi: { emergency: 'Ngay lập tức', urgent: 'Trong 24 giờ', routine: 'Khi có thể sắp xếp', none: 'Không áp dụng' },
+  fr: { emergency: 'Immédiatement', urgent: 'Dans les 24 heures', routine: 'Dès que possible', none: 'Non applicable' },
+  zh: { emergency: '立即', urgent: '24小时内', routine: '方便时', none: '不适用' },
+};
+
+const RED_FLAG_MAP: Record<string, Record<string, string>> = {
+  en: {
+    'Thay đổi thị lực đột ngột': 'Sudden vision changes',
+    'Khó thở': 'Difficulty breathing',
+    'Đau ngực': 'Chest pain',
+    'Đau đầu dữ dội': 'Severe headache',
+    'Lú lẫn, ý thức thay đổi': 'Confusion, altered consciousness',
+    'Sốt cao kèm đau dữ dội': 'High fever with severe pain',
+    'Chảy máu': 'Bleeding',
+    'Không thể phân tích tự động, cần đánh giá trực tiếp': 'Cannot analyse automatically — direct evaluation required',
+  },
+  fr: {
+    'Thay đổi thị lực đột ngột': 'Changements visuels soudains',
+    'Khó thở': 'Difficultés respiratoires',
+    'Đau ngực': 'Douleur thoracique',
+    'Đau đầu dữ dội': 'Maux de tête sévères',
+    'Lú lẫn, ý thức thay đổi': 'Confusion, altération de la conscience',
+    'Sốt cao kèm đau dữ dội': 'Fièvre élevée avec douleur intense',
+    'Chảy máu': 'Saignement',
+    'Không thể phân tích tự động, cần đánh giá trực tiếp': 'Analyse automatique impossible — évaluation directe requise',
+  },
+  zh: {
+    'Thay đổi thị lực đột ngột': '突然视力变化',
+    'Khó thở': '呼吸困难',
+    'Đau ngực': '胸痛',
+    'Đau đầu dữ dội': '剧烈头痛',
+    'Lú lẫn, ý thức thay đổi': '意识混乱',
+    'Sốt cao kèm đau dữ dội': '高烧伴剧烈疼痛',
+    'Chảy máu': '出血',
+    'Không thể phân tích tự động, cần đánh giá trực tiếp': '无法自动分析，需要直接评估',
+  },
+};
+
+function translateRedFlags(flags: string[], lang?: string): string[] {
+  if (!lang || lang === 'vi' || !RED_FLAG_MAP[lang]) return flags;
+  return flags.map(f => RED_FLAG_MAP[lang][f] ?? f);
+}
+
+function getTimeframe(level: string, lang?: string): string {
+  const l = lang && TIMEFRAME_MAP[lang] ? lang : 'vi';
+  const map = TIMEFRAME_MAP[l];
+  return map[level] ?? map.none;
+}
 
 export class MedagenAgent {
   private llm: GeminiLLM;
@@ -51,7 +109,9 @@ export class MedagenAgent {
     imageUrl?: string,
     _userId?: string,
     conversationContext?: string,
-    location?: Location
+    location?: Location,
+    healthProfile?: HealthProfile | null,
+    language?: string
   ): Promise<TriageResult & { nearest_clinic?: NearestClinic }> {
     if (!this.initialized) {
       await this.initialize();
@@ -66,33 +126,36 @@ export class MedagenAgent {
       const intent = this.intentClassifier.classifyIntent(userText, !!imageUrl);
       logger.info(`[ROUTING] Intent classified: ${intent.type} (confidence: ${intent.confidence})`);
 
+      // Build health profile context string once for reuse
+      const profileContext = healthProfile ? this.buildProfileContext(healthProfile) : undefined;
+
       // Step 2: Route based on intent
       switch (intent.type) {
         case 'casual_greeting':
           logger.info('[ROUTING] → Lightweight: Casual greeting');
-          return await this.handleCasualConversation(userText, conversationContext);
+          return await this.handleCasualConversation(userText, conversationContext, language);
 
         case 'out_of_scope':
           logger.info('[ROUTING] → Lightweight: Out of scope');
-          return await this.handleOutOfScope(userText, intent);
+          return await this.handleOutOfScope(userText, intent, language);
 
         case 'disease_info':
           logger.info('[ROUTING] → Medium: Disease info (RAG only)');
-          return await this.processDiseaseInfoQuery(userText, conversationContext);
+          return await this.processDiseaseInfoQuery(userText, conversationContext, profileContext, language);
 
         case 'triage':
           if (imageUrl) {
             logger.info('[ROUTING] → Full: Triage with image (CV + Triage + RAG)');
-            return await this.processTriageWithImage(userText, imageUrl, conversationContext, location);
+            return await this.processTriageWithImage(userText, imageUrl, conversationContext, location, profileContext, language);
           } else {
             logger.info('[ROUTING] → Full: Triage text-only (Triage + RAG)');
-            return await this.processTriageTextOnly(userText, conversationContext, location);
+            return await this.processTriageTextOnly(userText, conversationContext, location, profileContext, language);
           }
 
         default:
           // Fallback: if unclear, use lightweight response
           logger.info('[ROUTING] → Lightweight: Default fallback');
-          return await this.handleCasualConversation(userText, conversationContext);
+          return await this.handleCasualConversation(userText, conversationContext, language);
       }
     } catch (error) {
       logger.error({ error }, 'Error processing query');
@@ -102,13 +165,43 @@ export class MedagenAgent {
     }
   }
 
+  private buildProfileContext(profile: HealthProfile): string {
+    const parts: string[] = ['=== HỒ SƠ SỨC KHỎE BỆNH NHÂN ==='];
+    if (profile.full_name) parts.push(`Tên: ${profile.full_name}`);
+    if (profile.date_of_birth) {
+      const age = new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear();
+      parts.push(`Tuổi: ${age}`);
+    }
+    if (profile.gender) {
+      const genderMap = { male: 'Nam', female: 'Nữ', other: 'Khác' };
+      parts.push(`Giới tính: ${genderMap[profile.gender]}`);
+    }
+    if (profile.height_cm && profile.weight_kg) {
+      const bmi = (profile.weight_kg / Math.pow(profile.height_cm / 100, 2)).toFixed(1);
+      parts.push(`Chiều cao: ${profile.height_cm}cm, Cân nặng: ${profile.weight_kg}kg (BMI: ${bmi})`);
+    }
+    if (profile.blood_type && profile.blood_type !== 'unknown') parts.push(`Nhóm máu: ${profile.blood_type}`);
+    if (profile.chronic_diseases?.length) parts.push(`Bệnh mãn tính: ${profile.chronic_diseases.join(', ')}`);
+    if (profile.drug_allergies?.length) parts.push(`DỊ ỨNG THUỐC: ${profile.drug_allergies.join(', ')} ← QUAN TRỌNG`);
+    if (profile.food_allergies?.length) parts.push(`Dị ứng thực phẩm: ${profile.food_allergies.join(', ')}`);
+    if (profile.current_medications?.length) {
+      const meds = profile.current_medications.map(m => `${m.name}${m.dosage ? ` (${m.dosage})` : ''}`).join(', ');
+      parts.push(`Thuốc đang dùng: ${meds}`);
+    }
+    if (profile.past_surgeries?.length) parts.push(`Tiền sử phẫu thuật: ${profile.past_surgeries.join(', ')}`);
+    parts.push('=== KẾT THÚC HỒ SƠ ===');
+    return parts.join('\n');
+  }
+
   /**
    * Process educational query about disease
    * Agent tự quyết định khi nào cần gọi knowledge base vs RAG
    */
   private async processDiseaseInfoQuery(
     userText: string,
-    conversationContext?: string
+    conversationContext?: string,
+    profileContext?: string,
+    language?: string
   ): Promise<TriageResult> {
     try {
       logger.info('='.repeat(80));
@@ -167,11 +260,13 @@ export class MedagenAgent {
       }).join('\n\n');
 
       // Use LLM to synthesize educational response
-      const prompt = `Bạn là trợ lý y tế giáo dục của Việt Nam, dựa trên hướng dẫn của Bộ Y Tế. Hãy tạo một phản hồi TỰ NHIÊN, DỄ HIỂU bằng markdown HOÀN TOÀN BẰNG TIẾNG VIỆT.
+      const langInstr = LANG_INSTRUCTION[language ?? 'vi'] ?? '';
+      const prompt = `${langInstr ? langInstr + '\n\n' : ''}Bạn là trợ lý y tế giáo dục của Việt Nam, dựa trên hướng dẫn của Bộ Y Tế. Hãy tạo một phản hồi TỰ NHIÊN, DỄ HIỂU bằng markdown HOÀN TOÀN BẰNG TIẾNG VIỆT.
 
 Câu hỏi của người dùng: ${userText}
 
 ${conversationContext ? `Ngữ cảnh cuộc trò chuyện trước: ${conversationContext}` : ''}
+${profileContext ? `\n${profileContext}\nLưu ý: sử dụng hồ sơ sức khỏe để cá nhân hóa lời khuyên (đặc biệt chú ý dị ứng thuốc và bệnh mãn tính).\n` : ''}
 
 ═══════════════════════════════════════════════════════════════════════════════
 HƯỚNG DẪN Y TẾ TỪ BỘ Y TẾ (BẮT BUỘC PHẢI SỬ DỤNG):
@@ -303,31 +398,52 @@ Ví dụ format markdown NGẮN GỌN:
     userText: string,
     imageUrl: string,
     conversationContext?: string,
-    location?: Location
+    location?: Location,
+    profileContext?: string,
+    language?: string
   ): Promise<TriageResult & { nearest_clinic?: NearestClinic }> {
     try {
-      logger.info('Processing triage with image using custom workflow...');
+      logger.info('Processing triage with image using Gemini Vision...');
 
-      // Step 1: Call CV model directly based on user text
-      logger.info('Step 1: Analyzing image with CV model...');
-      const cvType = this.determineCVType(userText);
-      const cvResult = await this.callCVModel(imageUrl, cvType);
-      
-      logger.info(`CV analysis complete. Top condition: ${cvResult.top_conditions[0]?.name || 'none'}`);
-      logger.info(`CV confidence: ${cvResult.top_conditions[0]?.prob ? (cvResult.top_conditions[0].prob * 100).toFixed(1) + '%' : 'N/A'}`);
+      // Step 1: Gemini Vision phân tích ảnh trực tiếp
+      logger.info('Step 1: Analyzing image with Gemini Vision...');
+      const visionPrompt = `Bạn là bác sĩ AI chuyên phân tích hình ảnh y tế. Hãy phân tích hình ảnh này và trả lời BẰNG TIẾNG VIỆT với format JSON sau (KHÔNG thêm markdown, chỉ JSON thuần):
+{
+  "observations": "mô tả ngắn gọn những gì thấy trong ảnh (màu sắc, hình dạng, vị trí tổn thương nếu có)",
+  "suspected_conditions": ["tên bệnh 1", "tên bệnh 2"],
+  "confidence": "high|medium|low",
+  "image_quality": "good|poor",
+  "notes": "ghi chú thêm nếu cần"
+}
 
-      // Filter CV results by confidence threshold (only use if confidence >= 0.5)
-      const CV_CONFIDENCE_THRESHOLD = 0.5;
-      const validCVResults = cvResult.top_conditions.filter((c: any) => c.prob >= CV_CONFIDENCE_THRESHOLD);
-      
-      if (validCVResults.length === 0) {
-        logger.warn(`[AGENT] CV results có confidence quá thấp (< ${CV_CONFIDENCE_THRESHOLD * 100}%). Sẽ bỏ qua CV results và chỉ dùng text-based analysis.`);
-        logger.info(`[AGENT] Top CV result: ${cvResult.top_conditions[0]?.name} (${(cvResult.top_conditions[0]?.prob * 100 || 0).toFixed(1)}%)`);
-      } else {
-        logger.info(`[AGENT] Sử dụng ${validCVResults.length} CV results với confidence >= ${CV_CONFIDENCE_THRESHOLD * 100}%`);
+Thông tin từ người dùng: ${userText || 'Không có mô tả thêm'}
+Chỉ trả về JSON, không giải thích thêm.`;
+
+      let visionAnalysis: { observations: string; suspected_conditions: string[]; confidence: string; image_quality: string; notes?: string } | null = null;
+      const validCVResults: Array<{ name: string; prob: number }> = [];
+
+      try {
+        const visionText = await this.llm.generateWithImage(imageUrl, visionPrompt);
+        const jsonMatch = visionText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          visionAnalysis = JSON.parse(jsonMatch[0]);
+          logger.info(`[Gemini Vision] Observations: ${visionAnalysis?.observations}`);
+          logger.info(`[Gemini Vision] Suspected: ${visionAnalysis?.suspected_conditions?.join(', ')}`);
+
+          // Chuyển kết quả vision thành format CVResult tương thích
+          const confidenceToProb = { high: 0.85, medium: 0.65, low: 0.45 };
+          const baseProb = confidenceToProb[(visionAnalysis?.confidence as keyof typeof confidenceToProb)] ?? 0.5;
+          visionAnalysis?.suspected_conditions?.slice(0, 3).forEach((name, i) => {
+            validCVResults.push({ name, prob: Math.max(0.3, baseProb - i * 0.1) });
+          });
+        }
+      } catch (visionErr) {
+        logger.warn({ visionErr }, '[Gemini Vision] Could not parse vision response, proceeding with text-only');
       }
 
-      // Step 2: Call triage rules with CV results (only if valid)
+      logger.info(`[AGENT] Gemini Vision found ${validCVResults.length} conditions`);
+
+      // Step 2: Apply triage rules
       logger.info('Step 2: Applying triage rules...');
       const triageInput = {
         symptoms: {
@@ -335,12 +451,9 @@ Ví dụ format markdown NGẮN GỌN:
           context: conversationContext
         },
         cv_results: validCVResults.length > 0 ? {
-          model_used: cvType === 'derm' ? 'derm_cv' : cvType === 'eye' ? 'eye_cv' : 'wound_cv',
+          model_used: 'gemini_vision',
           raw_output: {
-            top_predictions: validCVResults.map(c => ({
-              condition: c.name,
-              probability: c.prob
-            }))
+            top_predictions: validCVResults.map(c => ({ condition: c.name, probability: c.prob }))
           }
         } : undefined
       };
@@ -350,41 +463,30 @@ Ví dụ format markdown NGẮN GỌN:
 
       // Step 3: Get guidelines from RAG
       logger.info('[AGENT] Step 3: Retrieving medical guidelines from RAG...');
-      // Chỉ dùng CV conditions nếu có valid results với confidence đủ cao
-      // Chỉ lấy 1 kết quả CV có confidence cao nhất
-      const suspectedConditions = validCVResults.length > 0 
-        ? validCVResults.slice(0, 1).map(c => c.name)
-        : [];
-      
-      if (validCVResults.length === 0) {
-        logger.info('[AGENT] Không dùng CV conditions trong RAG search vì confidence quá thấp. Chỉ dùng user symptoms.');
-      }
-      
+      const suspectedConditions = validCVResults.slice(0, 1).map(c => c.name);
       const guidelineInput = {
         symptoms: userText,
         suspected_conditions: suspectedConditions,
         triage_level: triageResult.triage
       };
 
-      logger.info(`[AGENT] Calling MCP RAG - searchGuidelines...`);
       const guidelines = await this.ragService.searchGuidelines(guidelineInput);
       logger.info(`[AGENT] Retrieved ${guidelines.length} guideline snippets from RAG`);
-      // Store guidelines count for report generation
-      (guidelineInput as any).guidelines_count = guidelines.length;
 
-      // Step 4: Use LLM to synthesize final response
+      // Step 4: Synthesize with full context including vision observations
       logger.info('Step 4: Synthesizing final response with LLM...');
-      // Chỉ truyền valid CV results
-      const filteredCVResult = {
-        top_conditions: validCVResults.length > 0 ? validCVResults : []
-      };
-      
+      const enrichedText = visionAnalysis?.observations
+        ? `${userText}\n[Phân tích hình ảnh: ${visionAnalysis.observations}]`
+        : userText;
+
       const finalResult = await this.synthesizeFinalResponse(
-        userText,
-        filteredCVResult,
+        enrichedText,
+        { top_conditions: validCVResults },
         triageResult,
         guidelines,
-        conversationContext
+        conversationContext,
+        profileContext,
+        language
       );
       
       // Attach guidelines count to result for report generation
@@ -476,7 +578,9 @@ Ví dụ format markdown NGẮN GỌN:
   private async processTriageTextOnly(
     userText: string,
     conversationContext?: string,
-    location?: Location
+    location?: Location,
+    profileContext?: string,
+    language?: string
   ): Promise<TriageResult & { nearest_clinic?: NearestClinic }> {
     try {
       logger.info('Processing text-only query...');
@@ -494,7 +598,7 @@ Ví dụ format markdown NGẮN GỌN:
       if (isEducationalQuery) {
         // Câu hỏi giáo dục: thử knowledge base trước, sau đó RAG
         logger.info('[AGENT] Detected educational query, using knowledge base/RAG workflow');
-        return await this.processDiseaseInfoQuery(userText, conversationContext);
+        return await this.processDiseaseInfoQuery(userText, conversationContext, profileContext);
       }
 
       // Triệu chứng cá nhân: dùng triage workflow
@@ -525,7 +629,9 @@ Ví dụ format markdown NGẮN GỌN:
         { top_conditions: [] },
         triageResult,
         guidelines,
-        conversationContext
+        conversationContext,
+        profileContext,
+        language
       );
       
       // Attach guidelines count to result for report generation
@@ -649,7 +755,9 @@ Ví dụ format markdown NGẮN GỌN:
     cvResult: any,
     triageResult: any,
     guidelines: any[],
-    conversationContext?: string
+    conversationContext?: string,
+    profileContext?: string,
+    language?: string
   ): Promise<TriageResult> {
     // Determine CV model used
     const cvModelUsed = cvResult.top_conditions.length > 0 
@@ -662,11 +770,13 @@ Ví dụ format markdown NGẮN GỌN:
       return `\n--- Guideline ${i + 1} ---\n${content}`;
     }).join('\n\n');
 
-    const prompt = `Bạn là trợ lý y tế AI của Việt Nam. Dựa trên thông tin sau, hãy tạo một phản hồi TỰ NHIÊN, DỄ HIỂU bằng markdown HOÀN TOÀN BẰNG TIẾNG VIỆT.
+    const langInstr = LANG_INSTRUCTION[language ?? 'vi'] ?? '';
+    const prompt = `${langInstr ? langInstr + '\n\n' : ''}Bạn là trợ lý y tế AI của Việt Nam. Dựa trên thông tin sau, hãy tạo một phản hồi TỰ NHIÊN, DỄ HIỂU bằng markdown HOÀN TOÀN BẰNG TIẾNG VIỆT.
 
 Mô tả triệu chứng: ${userText}
 
 ${conversationContext ? `Ngữ cảnh cuộc trò chuyện trước: ${conversationContext}` : ''}
+${profileContext ? `\n${profileContext}\nLưu ý: cá nhân hóa phân tích dựa trên hồ sơ sức khỏe (bệnh mãn tính, dị ứng thuốc ảnh hưởng đến khuyến nghị).\n` : ''}
 
 ${cvResult.top_conditions.length > 0 ? `
 Kết quả phân tích hình ảnh (chỉ các kết quả có độ tin cậy cao):
@@ -779,7 +889,7 @@ Dựa trên triệu chứng và hình ảnh, có khả năng bạn đang gặp [
     const parsed: TriageResult = {
       triage_level: triageLevel,
       symptom_summary: userText,
-      red_flags: triageResult.red_flags || [],
+      red_flags: translateRedFlags(triageResult.red_flags || [], language),
       suspected_conditions: suspectedCondition ? [{
         name: suspectedCondition,
         source: 'cv_model' as ConditionSource,
@@ -793,7 +903,7 @@ Dựa trên triệu chứng và hình ảnh, có khả năng bạn đang gặp [
       },
       recommendation: {
         action: action,
-        timeframe: triageLevel === 'emergency' ? 'Ngay lập tức' : triageLevel === 'urgent' ? 'Trong 24 giờ' : 'Khi có thể sắp xếp',
+        timeframe: getTimeframe(triageLevel, language),
         home_care_advice: homeCareAdvice,
         warning_signs: warningSigns
       },
@@ -817,12 +927,13 @@ Dựa trên triệu chứng và hình ảnh, có khả năng bạn đang gặp [
    */
   private async handleCasualConversation(
     userText: string,
-    conversationContext?: string
+    conversationContext?: string,
+    language?: string
   ): Promise<TriageResult> {
     try {
       logger.info('[LIGHTWEIGHT] Handling casual conversation...');
-      
-      const prompt = `Bạn là trợ lý y tế thân thiện của Việt Nam. Người dùng nói: "${userText}"
+      const langInstr = LANG_INSTRUCTION[language ?? 'vi'] ?? '';
+      const prompt = `${langInstr ? langInstr + '\n\n' : ''}Bạn là trợ lý y tế thân thiện của Việt Nam. Người dùng nói: "${userText}"
 
 ${conversationContext ? `Ngữ cảnh cuộc trò chuyện trước: ${conversationContext}` : ''}
 
@@ -853,12 +964,13 @@ Viết bằng markdown, tự nhiên, không cần format cứng nhắc.`;
    */
   private async handleOutOfScope(
     userText: string,
-    intent: Intent
+    intent: Intent,
+    language?: string
   ): Promise<TriageResult> {
     try {
       logger.info('[LIGHTWEIGHT] Handling out of scope query...');
-      
-      const prompt = `Bạn là trợ lý y tế của Việt Nam. Người dùng hỏi: "${userText}"
+      const langInstr = LANG_INSTRUCTION[language ?? 'vi'] ?? '';
+      const prompt = `${langInstr ? langInstr + '\n\n' : ''}Bạn là trợ lý y tế của Việt Nam. Người dùng hỏi: "${userText}"
 
 Câu hỏi này nằm ngoài phạm vi của hệ thống (${JSON.stringify(intent.entities)}).
 
