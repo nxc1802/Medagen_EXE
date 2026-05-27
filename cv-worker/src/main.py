@@ -26,12 +26,18 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
     return api_key
 
 async def preload_models_background():
-    # Run PyTorch model loading in a background thread so it doesn't block the event loop
+    # Wait for 15 seconds to allow the server to fully bind, respond to initial health checks,
+    # and be marked as "Running" by Hugging Face Spaces/Cloud Run.
+    logger.info("Waiting 15 seconds before preloading models to ensure healthy startup status...")
+    await asyncio.sleep(15)
+    
     for model_name in MODEL_CONFIGS.keys():
         try:
-            logger.info(f"Loading weights for model: {model_name}...")
+            logger.info(f"Loading weights for model: {model_name} in background...")
             await asyncio.to_thread(load_model, model_name)
             logger.info(f"Model [{model_name}] preloaded successfully.")
+            # Pause between models to avoid CPU/GIL starvation
+            await asyncio.sleep(5)
         except Exception as e:
             logger.error(f"Failed to preload model [{model_name}]: {str(e)}")
 
