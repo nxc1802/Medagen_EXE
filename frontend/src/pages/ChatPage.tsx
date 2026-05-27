@@ -171,7 +171,7 @@ function MessageBubble({ msg, initialImageUrl }: { msg: ChatMessage; initialImag
             </div>
           )}
           {msg.triage_result && (
-            <TriageCard result={msg.triage_result} imageUrl={initialImageUrl} />
+            <TriageCard result={msg.triage_result as TriageResult} imageUrl={initialImageUrl} />
           )}
         </div>
         <p className="text-[10px] text-slate-400 dark:text-slate-500 px-1">{time}</p>

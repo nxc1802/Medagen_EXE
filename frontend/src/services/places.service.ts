@@ -63,7 +63,7 @@ export async function fetchNearbyPlaces(
 
   const places: Place[] = elements
     .filter(el => el.tags?.name)
-    .map(el => {
+    .map((el): Place | null => {
       const lat = el.type === 'way' ? el.center?.lat : el.lat
       const lng = el.type === 'way' ? el.center?.lon : el.lon
       if (lat == null || lng == null) return null
@@ -88,7 +88,7 @@ export async function fetchNearbyPlaces(
         isOpen: el.tags?.opening_hours === '24/7' ? true : undefined,
         distance: calcDistance(userLat, userLng, lat, lng),
         isRecommended: false,
-      } satisfies Place
+      }
     })
     .filter((p): p is Place => p !== null)
 
