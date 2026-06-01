@@ -282,12 +282,11 @@ HƯỚNG DẪN Y TẾ TỪ BỘ Y TẾ (BẮT BUỘC PHẢI SỬ DỤNG):
 ${formattedGuidelines}
 ═══════════════════════════════════════════════════════════════════════════════
 
-⚠️ QUAN TRỌNG: BẮT BUỘC sử dụng thông tin từ "Hướng dẫn y tế từ Bộ Y Tế" ở trên:
-- PHẢI dựa trên thông tin CỤ THỂ từ guidelines để giải thích, biện luận về bệnh/triệu chứng
-- KHÔNG được tự ý tạo thông tin ngoài guidelines được cung cấp
-- Có thể giải thích nguyên tắc điều trị từ guidelines (KHÔNG kê đơn cụ thể, không khuyến nghị liều thuốc)
-- Nếu guidelines đề cập thuốc cụ thể, có thể giải thích: "Có thể sử dụng các thuốc như... (theo chỉ định của bác sĩ)"
-- Nếu guidelines đề cập phương pháp, có thể giải thích phương pháp đó một cách tự nhiên
+HƯỚNG DẪN SỬ DỤNG GUIDELINES:
+- Ưu tiên sử dụng thông tin từ guidelines Bộ Y Tế khi có liên quan
+- Nếu guidelines không đủ hoặc không liên quan, hãy dùng kiến thức y khoa tổng quát để trả lời
+- Không kê đơn cụ thể, không khuyến nghị liều thuốc; có thể đề cập nhóm thuốc phổ biến (theo chỉ định bác sĩ)
+- Đây là thông tin giáo dục, không thay thế ý kiến bác sĩ
 
 YÊU CẦU VỀ PHONG CÁCH VIẾT:
 1. VIẾT HOÀN TOÀN BẰNG TIẾNG VIỆT - không được dùng tiếng Anh trong response
@@ -422,8 +421,8 @@ Ví dụ format markdown NGẮN GỌN:
     try {
       logger.info('Processing triage with image using Gemini Vision...');
 
-      // Step 1: Vision analysis + initial RAG search run in parallel for speed
-      logger.info('Step 1: Analyzing image with Gemini Vision (parallel with RAG pre-fetch)...');
+      // Step 1: Vision analysis first — we need the findings before querying RAG
+      logger.info('Step 1: Analyzing image with Gemini Vision...');
       callbacks?.onStatus('Đang phân tích hình ảnh...');
 
       const visionPrompt = `Bạn là bác sĩ AI chuyên phân tích hình ảnh y tế. Hãy phân tích hình ảnh này và trả lời BẰNG TIẾNG VIỆT với format JSON sau (KHÔNG thêm markdown, chỉ JSON thuần):
@@ -438,18 +437,10 @@ Ví dụ format markdown NGẮN GỌN:
 Thông tin từ người dùng: ${userText || 'Không có mô tả thêm'}
 Chỉ trả về JSON, không giải thích thêm.`;
 
-      // Pre-fetch RAG with user text while Vision is running (saves ~5-7s)
-      const [visionText, preGuidelines] = await Promise.all([
-        this.llm.generateWithImage(imageUrl, visionPrompt).catch((e: any) => {
-          logger.warn({ e }, '[Gemini Vision] Vision failed');
-          return null;
-        }),
-        this.ragService.searchGuidelines({
-          symptoms: userText,
-          suspected_conditions: [],
-          triage_level: 'routine',
-        }).catch(() => [] as string[]),
-      ]);
+      const visionText = await this.llm.generateWithImage(imageUrl, visionPrompt).catch((e: any) => {
+        logger.warn({ e }, '[Gemini Vision] Vision failed');
+        return null;
+      });
 
       let visionAnalysis: { observations: string; suspected_conditions: string[]; confidence: string; image_quality: string; notes?: string } | null = null;
       const validCVResults: Array<{ name: string; prob: number }> = [];
@@ -475,7 +466,7 @@ Chỉ trả về JSON, không giải thích thêm.`;
 
       logger.info(`[AGENT] Gemini Vision found ${validCVResults.length} conditions`);
 
-      // Step 2: Apply triage rules
+      // Step 2: Apply triage rules (with vision findings included)
       logger.info('Step 2: Applying triage rules...');
       const triageInput = {
         symptoms: {
@@ -493,10 +484,14 @@ Chỉ trả về JSON, không giải thích thêm.`;
       const triageResult = this.triageService.evaluateSymptoms(triageInput);
       logger.info(`Triage level: ${triageResult.triage}`);
 
-      // Step 3: Use pre-fetched RAG results (already retrieved in parallel with Vision)
-      logger.info('[AGENT] Step 3: Using pre-fetched RAG guidelines...');
+      // Step 3: RAG query now includes vision findings for better guideline matching
+      logger.info('[AGENT] Step 3: Fetching RAG guidelines with vision context...');
       callbacks?.onStatus('Đang tìm hướng dẫn y tế...');
-      const guidelines = preGuidelines;
+      const guidelines = await this.ragService.searchGuidelines({
+        symptoms: userText,
+        suspected_conditions: visionAnalysis?.suspected_conditions ?? [],
+        triage_level: triageResult.triage,
+      }).catch(() => [] as string[]);
       logger.info(`[AGENT] Retrieved ${guidelines.length} guideline snippets from RAG`);
 
       // Step 4: Synthesize with full context including vision observations
@@ -614,24 +609,8 @@ Chỉ trả về JSON, không giải thích thêm.`;
     try {
       logger.info('Processing text-only query...');
 
-      // Phân tích user text để quyết định workflow
-      // Nếu có từ khóa "là gì", "như thế nào", "về" → câu hỏi giáo dục
-      const lowerText = userText.toLowerCase();
-      const isEducationalQuery = 
-        lowerText.includes('là gì') || 
-        lowerText.includes('như thế nào') || 
-        lowerText.includes('về') ||
-        lowerText.includes('giải thích') ||
-        lowerText.includes('cho tôi biết');
-
-      if (isEducationalQuery) {
-        // Câu hỏi giáo dục: thử knowledge base trước, sau đó RAG
-        logger.info('[AGENT] Detected educational query, using knowledge base/RAG workflow');
-        return await this.processDiseaseInfoQuery(userText, conversationContext, profileContext, language, callbacks);
-      }
-
-      // Triệu chứng cá nhân: dùng triage workflow
-      logger.info('[AGENT] Detected symptom query, using triage workflow');
+      // Intent routing already handled in processTriage(); always run triage workflow here
+      logger.info('[AGENT] Running triage workflow for text query');
       
       // Step 1: Apply triage rules
       const triageInput = {
@@ -828,12 +807,11 @@ HƯỚNG DẪN Y TẾ TỪ BỘ Y TẾ (BẮT BUỘC PHẢI SỬ DỤNG):
 ${formattedGuidelines}
 ═══════════════════════════════════════════════════════════════════════════════
 
-⚠️ QUAN TRỌNG: BẮT BUỘC sử dụng thông tin từ "Hướng dẫn y tế từ Bộ Y Tế" ở trên:
-- PHẢI dựa trên thông tin CỤ THỂ từ guidelines để giải thích, biện luận, so sánh
-- KHÔNG được tự ý tạo thông tin ngoài guidelines được cung cấp
-- Có thể giải thích nguyên tắc điều trị từ guidelines (KHÔNG kê đơn cụ thể, không khuyến nghị liều thuốc)
-- Nếu guidelines đề cập thuốc cụ thể, có thể giải thích: "Có thể sử dụng các thuốc bôi tại chỗ như retinoid, benzoyl peroxid (theo chỉ định của bác sĩ)"
-- Nếu guidelines đề cập phương pháp, có thể giải thích phương pháp đó một cách tự nhiên
+HƯỚNG DẪN SỬ DỤNG GUIDELINES:
+- Ưu tiên sử dụng thông tin từ guidelines Bộ Y Tế khi có liên quan
+- Nếu guidelines không đủ hoặc không liên quan, hãy kết hợp kiến thức y khoa tổng quát để đưa ra chẩn đoán tốt nhất
+- Không kê đơn cụ thể, không khuyến nghị liều thuốc; có thể đề cập nhóm thuốc phổ biến (theo chỉ định bác sĩ)
+- Luôn khuyến khích bệnh nhân đến khám bác sĩ để có chẩn đoán chính xác
 
 YÊU CẦU VỀ PHONG CÁCH VIẾT:
 1. VIẾT HOÀN TOÀN BẰNG TIẾNG VIỆT - không được dùng tiếng Anh trong response

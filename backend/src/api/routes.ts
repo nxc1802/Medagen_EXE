@@ -14,6 +14,9 @@ const carePlanService = new CarePlanService(supabaseService);
 const chatService = new ConversationHistoryService(supabaseService.getClient());
 
 export async function registerRoutes(fastify: FastifyInstance) {
+  // Pre-warm agent so the first real request doesn't pay the cold-start penalty
+  agent.initialize().catch(err => logger.warn({ err }, 'Agent pre-warm failed'));
+
   // POST /api/analyze — run AI triage on symptoms + optional image
   fastify.post<{ Body: HealthCheckRequest }>('/api/analyze', {
     preHandler: [authMiddleware],

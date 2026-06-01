@@ -41,7 +41,11 @@ async function queryOverpass(lat: number, lng: number, amenities: string[], radi
     .map(a => `node["amenity"="${a}"](around:${radius},${lat},${lng});way["amenity"="${a}"](around:${radius},${lat},${lng});`)
     .join('')
   const query = `[out:json][timeout:25];(${parts});out center;`
-  const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)
+  const res = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(query)}`,
+  })
   if (!res.ok) throw new Error('Không thể lấy dữ liệu địa điểm. Vui lòng thử lại.')
   const data = await res.json()
   return data.elements ?? []
