@@ -1,6 +1,6 @@
 ﻿import { useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { analyzeStream, uploadImage } from '../api/client'
+import { analyzeSymptoms, uploadImage } from '../api/client'
 import { useT, useSettings } from '../contexts/SettingsContext'
 
 // Backend values stay English (sent to AI)
@@ -51,7 +51,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState('')
-  const [streamingText, setStreamingText] = useState('')
 
   const openCamera = async () => {
     try {
@@ -112,25 +111,16 @@ export default function DashboardPage() {
     }
     setLoading(true)
     setError(null)
-    setStreamingText('')
     try {
       let imageUrl: string | undefined
       if (imageFile) {
         setUploadProgress(t('dashboard.uploading'))
         imageUrl = await uploadImage(imageFile)
       }
+      setUploadProgress(t('dashboard.processing'))
       const fullText = `${symptoms.trim()} (Duration: ${duration}, Severity: ${severity})`.trim()
-      await analyzeStream(
-        { text: fullText, image_url: imageUrl, language },
-        {
-          onStatus: (msg) => setUploadProgress(msg),
-          onToken: (token) => setStreamingText((prev) => prev + token),
-          onDone: (result) => {
-            navigate(`/chat/${result.session_id}`, { state: { result, imageUrl, initialText: fullText } })
-          },
-          onError: (err) => setError(err || t('state.errGeneric')),
-        }
-      )
+      const result = await analyzeSymptoms({ text: fullText, image_url: imageUrl, language })
+      navigate(`/chat/${result.session_id}`, { state: { result, imageUrl, initialText: fullText } })
     } catch (err: any) {
       setError(err.message || t('state.errGeneric'))
     } finally {
@@ -363,19 +353,6 @@ export default function DashboardPage() {
             </button>
           </div>
         </form>
-
-        {/* ── Streaming preview ── */}
-        {streamingText && (
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 dark:bg-primary/10 p-5">
-            <div className="flex items-center gap-2 mb-3 text-primary text-xs font-bold uppercase tracking-widest">
-              <span className="material-symbols-outlined text-base animate-pulse">psychology</span>
-              Đang phân tích...
-            </div>
-            <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-6">
-              {streamingText}
-            </div>
-          </div>
-        )}
 
         {/* ── Medical disclaimer ── */}
         <div className="flex gap-4 p-6 rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20">
