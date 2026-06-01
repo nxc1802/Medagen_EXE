@@ -9,6 +9,11 @@ import { IntentClassifierService, type Intent } from '../services/intent-classif
 import { logger } from '../utils/logger.js';
 import type { TriageResult, TriageLevel, ConditionSource, ConditionConfidence, Location, NearestClinic, HealthProfile } from '../types/index.js';
 
+export interface StreamCallbacks {
+  onStatus: (message: string) => void;
+  onToken: (token: string) => void;
+}
+
 const LANG_INSTRUCTION: Record<string, string> = {
   en: 'IMPORTANT: You MUST respond entirely in English. Do not use Vietnamese.',
   fr: 'IMPORTANT: Vous DEVEZ répondre entièrement en français. N\'utilisez pas le vietnamien.',
@@ -111,7 +116,8 @@ export class MedagenAgent {
     conversationContext?: string,
     location?: Location,
     healthProfile?: HealthProfile | null,
-    language?: string
+    language?: string,
+    callbacks?: StreamCallbacks
   ): Promise<TriageResult & { nearest_clinic?: NearestClinic }> {
     if (!this.initialized) {
       await this.initialize();
@@ -133,29 +139,29 @@ export class MedagenAgent {
       switch (intent.type) {
         case 'casual_greeting':
           logger.info('[ROUTING] → Lightweight: Casual greeting');
-          return await this.handleCasualConversation(userText, conversationContext, language);
+          return await this.handleCasualConversation(userText, conversationContext, language, callbacks);
 
         case 'out_of_scope':
           logger.info('[ROUTING] → Lightweight: Out of scope');
-          return await this.handleOutOfScope(userText, intent, language);
+          return await this.handleOutOfScope(userText, intent, language, callbacks);
 
         case 'disease_info':
           logger.info('[ROUTING] → Medium: Disease info (RAG only)');
-          return await this.processDiseaseInfoQuery(userText, conversationContext, profileContext, language);
+          return await this.processDiseaseInfoQuery(userText, conversationContext, profileContext, language, callbacks);
 
         case 'triage':
           if (imageUrl) {
             logger.info('[ROUTING] → Full: Triage with image (CV + Triage + RAG)');
-            return await this.processTriageWithImage(userText, imageUrl, conversationContext, location, profileContext, language);
+            return await this.processTriageWithImage(userText, imageUrl, conversationContext, location, profileContext, language, callbacks);
           } else {
             logger.info('[ROUTING] → Full: Triage text-only (Triage + RAG)');
-            return await this.processTriageTextOnly(userText, conversationContext, location, profileContext, language);
+            return await this.processTriageTextOnly(userText, conversationContext, location, profileContext, language, callbacks);
           }
 
         default:
           // Fallback: if unclear, use lightweight response
           logger.info('[ROUTING] → Lightweight: Default fallback');
-          return await this.handleCasualConversation(userText, conversationContext, language);
+          return await this.handleCasualConversation(userText, conversationContext, language, callbacks);
       }
     } catch (error) {
       logger.error({ error }, 'Error processing query');
@@ -201,7 +207,8 @@ export class MedagenAgent {
     userText: string,
     conversationContext?: string,
     profileContext?: string,
-    language?: string
+    language?: string,
+    callbacks?: StreamCallbacks
   ): Promise<TriageResult> {
     try {
       logger.info('='.repeat(80));
@@ -240,6 +247,7 @@ export class MedagenAgent {
       // Step 2: Fallback to RAG if no structured results
       if (guidelines.length === 0) {
         logger.info('[AGENT] Step 2: Using RAG for semantic search...');
+        callbacks?.onStatus('Đang tìm hướng dẫn y tế...');
         const guidelineQuery = {
           symptoms: userText,
           suspected_conditions: [],
@@ -250,7 +258,7 @@ export class MedagenAgent {
         guidelines = await this.ragService.searchGuidelines(guidelineQuery);
         logger.info(`[AGENT] Retrieved ${guidelines.length} guideline snippets from RAG`);
       }
-      
+
       logger.info(`[AGENT] Total guidelines collected: ${guidelines.length}`);
 
       // Format guidelines for better readability
@@ -340,11 +348,19 @@ Ví dụ format markdown NGẮN GỌN:
       logger.info(`- Conversation context: ${conversationContext ? 'Yes' : 'No'}`);
       logger.info('='.repeat(80));
 
-      const generations = await this.llm._generate([prompt]);
-      const response = generations.generations[0][0].text;
-
-      // Extract markdown content (full response is markdown)
-      const markdownContent = response.trim();
+      callbacks?.onStatus('Đang tổng hợp kết quả...');
+      let markdownContent: string;
+      if (callbacks?.onToken) {
+        markdownContent = '';
+        for await (const token of this.llm.generateStream(prompt)) {
+          callbacks.onToken(token);
+          markdownContent += token;
+        }
+        markdownContent = markdownContent.trim();
+      } else {
+        const generations = await this.llm._generate([prompt]);
+        markdownContent = generations.generations[0][0].text.trim();
+      }
 
       // Build TriageResult from markdown response
       const triageLevel = 'routine' as TriageLevel;
@@ -400,13 +416,16 @@ Ví dụ format markdown NGẮN GỌN:
     conversationContext?: string,
     location?: Location,
     profileContext?: string,
-    language?: string
+    language?: string,
+    callbacks?: StreamCallbacks
   ): Promise<TriageResult & { nearest_clinic?: NearestClinic }> {
     try {
       logger.info('Processing triage with image using Gemini Vision...');
 
-      // Step 1: Gemini Vision phân tích ảnh trực tiếp
-      logger.info('Step 1: Analyzing image with Gemini Vision...');
+      // Step 1: Vision analysis + initial RAG search run in parallel for speed
+      logger.info('Step 1: Analyzing image with Gemini Vision (parallel with RAG pre-fetch)...');
+      callbacks?.onStatus('Đang phân tích hình ảnh...');
+
       const visionPrompt = `Bạn là bác sĩ AI chuyên phân tích hình ảnh y tế. Hãy phân tích hình ảnh này và trả lời BẰNG TIẾNG VIỆT với format JSON sau (KHÔNG thêm markdown, chỉ JSON thuần):
 {
   "observations": "mô tả ngắn gọn những gì thấy trong ảnh (màu sắc, hình dạng, vị trí tổn thương nếu có)",
@@ -419,26 +438,39 @@ Ví dụ format markdown NGẮN GỌN:
 Thông tin từ người dùng: ${userText || 'Không có mô tả thêm'}
 Chỉ trả về JSON, không giải thích thêm.`;
 
+      // Pre-fetch RAG with user text while Vision is running (saves ~5-7s)
+      const [visionText, preGuidelines] = await Promise.all([
+        this.llm.generateWithImage(imageUrl, visionPrompt).catch((e: any) => {
+          logger.warn({ e }, '[Gemini Vision] Vision failed');
+          return null;
+        }),
+        this.ragService.searchGuidelines({
+          symptoms: userText,
+          suspected_conditions: [],
+          triage_level: 'routine',
+        }).catch(() => [] as string[]),
+      ]);
+
       let visionAnalysis: { observations: string; suspected_conditions: string[]; confidence: string; image_quality: string; notes?: string } | null = null;
       const validCVResults: Array<{ name: string; prob: number }> = [];
 
-      try {
-        const visionText = await this.llm.generateWithImage(imageUrl, visionPrompt);
-        const jsonMatch = visionText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          visionAnalysis = JSON.parse(jsonMatch[0]);
-          logger.info(`[Gemini Vision] Observations: ${visionAnalysis?.observations}`);
-          logger.info(`[Gemini Vision] Suspected: ${visionAnalysis?.suspected_conditions?.join(', ')}`);
+      if (visionText) {
+        try {
+          const jsonMatch = visionText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            visionAnalysis = JSON.parse(jsonMatch[0]);
+            logger.info(`[Gemini Vision] Observations: ${visionAnalysis?.observations}`);
+            logger.info(`[Gemini Vision] Suspected: ${visionAnalysis?.suspected_conditions?.join(', ')}`);
 
-          // Chuyển kết quả vision thành format CVResult tương thích
-          const confidenceToProb = { high: 0.85, medium: 0.65, low: 0.45 };
-          const baseProb = confidenceToProb[(visionAnalysis?.confidence as keyof typeof confidenceToProb)] ?? 0.5;
-          visionAnalysis?.suspected_conditions?.slice(0, 3).forEach((name, i) => {
-            validCVResults.push({ name, prob: Math.max(0.3, baseProb - i * 0.1) });
-          });
+            const confidenceToProb = { high: 0.85, medium: 0.65, low: 0.45 };
+            const baseProb = confidenceToProb[(visionAnalysis?.confidence as keyof typeof confidenceToProb)] ?? 0.5;
+            visionAnalysis?.suspected_conditions?.slice(0, 3).forEach((name, i) => {
+              validCVResults.push({ name, prob: Math.max(0.3, baseProb - i * 0.1) });
+            });
+          }
+        } catch (visionErr) {
+          logger.warn({ visionErr }, '[Gemini Vision] Could not parse vision response, proceeding with text-only');
         }
-      } catch (visionErr) {
-        logger.warn({ visionErr }, '[Gemini Vision] Could not parse vision response, proceeding with text-only');
       }
 
       logger.info(`[AGENT] Gemini Vision found ${validCVResults.length} conditions`);
@@ -461,20 +493,15 @@ Chỉ trả về JSON, không giải thích thêm.`;
       const triageResult = this.triageService.evaluateSymptoms(triageInput);
       logger.info(`Triage level: ${triageResult.triage}`);
 
-      // Step 3: Get guidelines from RAG
-      logger.info('[AGENT] Step 3: Retrieving medical guidelines from RAG...');
-      const suspectedConditions = validCVResults.slice(0, 1).map(c => c.name);
-      const guidelineInput = {
-        symptoms: userText,
-        suspected_conditions: suspectedConditions,
-        triage_level: triageResult.triage
-      };
-
-      const guidelines = await this.ragService.searchGuidelines(guidelineInput);
+      // Step 3: Use pre-fetched RAG results (already retrieved in parallel with Vision)
+      logger.info('[AGENT] Step 3: Using pre-fetched RAG guidelines...');
+      callbacks?.onStatus('Đang tìm hướng dẫn y tế...');
+      const guidelines = preGuidelines;
       logger.info(`[AGENT] Retrieved ${guidelines.length} guideline snippets from RAG`);
 
       // Step 4: Synthesize with full context including vision observations
       logger.info('Step 4: Synthesizing final response with LLM...');
+      callbacks?.onStatus('Đang tổng hợp kết quả...');
       const enrichedText = visionAnalysis?.observations
         ? `${userText}\n[Phân tích hình ảnh: ${visionAnalysis.observations}]`
         : userText;
@@ -486,7 +513,8 @@ Chỉ trả về JSON, không giải thích thêm.`;
         guidelines,
         conversationContext,
         profileContext,
-        language
+        language,
+        callbacks
       );
       
       // Attach guidelines count to result for report generation
@@ -580,7 +608,8 @@ Chỉ trả về JSON, không giải thích thêm.`;
     conversationContext?: string,
     location?: Location,
     profileContext?: string,
-    language?: string
+    language?: string,
+    callbacks?: StreamCallbacks
   ): Promise<TriageResult & { nearest_clinic?: NearestClinic }> {
     try {
       logger.info('Processing text-only query...');
@@ -598,7 +627,7 @@ Chỉ trả về JSON, không giải thích thêm.`;
       if (isEducationalQuery) {
         // Câu hỏi giáo dục: thử knowledge base trước, sau đó RAG
         logger.info('[AGENT] Detected educational query, using knowledge base/RAG workflow');
-        return await this.processDiseaseInfoQuery(userText, conversationContext, profileContext);
+        return await this.processDiseaseInfoQuery(userText, conversationContext, profileContext, language, callbacks);
       }
 
       // Triệu chứng cá nhân: dùng triage workflow
@@ -615,6 +644,7 @@ Chỉ trả về JSON, không giải thích thêm.`;
       const triageResult = this.triageService.evaluateSymptoms(triageInput);
       
       // Step 2: Get guidelines from RAG
+      callbacks?.onStatus('Đang tìm hướng dẫn y tế...');
       const guidelineInput = {
         symptoms: userText,
         suspected_conditions: [],
@@ -624,6 +654,7 @@ Chỉ trả về JSON, không giải thích thêm.`;
       const guidelines = await this.ragService.searchGuidelines(guidelineInput);
 
       // Step 3: Synthesize response
+      callbacks?.onStatus('Đang tổng hợp kết quả...');
       const finalResult = await this.synthesizeFinalResponse(
         userText,
         { top_conditions: [] },
@@ -631,7 +662,8 @@ Chỉ trả về JSON, không giải thích thêm.`;
         guidelines,
         conversationContext,
         profileContext,
-        language
+        language,
+        callbacks
       );
       
       // Attach guidelines count to result for report generation
@@ -757,7 +789,8 @@ Chỉ trả về JSON, không giải thích thêm.`;
     guidelines: any[],
     conversationContext?: string,
     profileContext?: string,
-    language?: string
+    language?: string,
+    callbacks?: StreamCallbacks
   ): Promise<TriageResult> {
     // Determine CV model used
     const cvModelUsed = cvResult.top_conditions.length > 0 
@@ -867,11 +900,18 @@ Dựa trên triệu chứng và hình ảnh, có khả năng bạn đang gặp [
     logger.info(`- Conversation context: ${conversationContext ? 'Yes' : 'No'}`);
     logger.info('='.repeat(80));
 
-    const generations = await this.llm._generate([prompt]);
-    const response = generations.generations[0][0].text;
-
-    // Extract markdown content (full response is markdown)
-    const markdownContent = response.trim();
+    let markdownContent: string;
+    if (callbacks?.onToken) {
+      markdownContent = '';
+      for await (const token of this.llm.generateStream(prompt)) {
+        callbacks.onToken(token);
+        markdownContent += token;
+      }
+      markdownContent = markdownContent.trim();
+    } else {
+      const generations = await this.llm._generate([prompt]);
+      markdownContent = generations.generations[0][0].text.trim();
+    }
 
     // Build TriageResult from markdown response
     const triageLevel = triageResult.triage as TriageLevel;
@@ -928,7 +968,8 @@ Dựa trên triệu chứng và hình ảnh, có khả năng bạn đang gặp [
   private async handleCasualConversation(
     userText: string,
     conversationContext?: string,
-    language?: string
+    language?: string,
+    callbacks?: StreamCallbacks
   ): Promise<TriageResult> {
     try {
       logger.info('[LIGHTWEIGHT] Handling casual conversation...');
@@ -945,8 +986,18 @@ Hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt:
 
 Viết bằng markdown, tự nhiên, không cần format cứng nhắc.`;
 
-      const generations = await this.llm._generate([prompt]);
-      const markdown = generations.generations[0][0].text.trim();
+      let markdown: string;
+      if (callbacks?.onToken) {
+        markdown = '';
+        for await (const token of this.llm.generateStream(prompt)) {
+          callbacks.onToken(token);
+          markdown += token;
+        }
+        markdown = markdown.trim();
+      } else {
+        const generations = await this.llm._generate([prompt]);
+        markdown = generations.generations[0][0].text.trim();
+      }
 
       return this.buildLightweightResponse(markdown, 'routine', userText);
     } catch (error) {
@@ -965,7 +1016,8 @@ Viết bằng markdown, tự nhiên, không cần format cứng nhắc.`;
   private async handleOutOfScope(
     userText: string,
     intent: Intent,
-    language?: string
+    language?: string,
+    callbacks?: StreamCallbacks
   ): Promise<TriageResult> {
     try {
       logger.info('[LIGHTWEIGHT] Handling out of scope query...');
@@ -981,8 +1033,18 @@ Hãy từ chối lịch sự và hướng dẫn họ đến kênh phù hợp:
 
 Viết bằng tiếng Việt, markdown format, ngắn gọn.`;
 
-      const generations = await this.llm._generate([prompt]);
-      const markdown = generations.generations[0][0].text.trim();
+      let markdown: string;
+      if (callbacks?.onToken) {
+        markdown = '';
+        for await (const token of this.llm.generateStream(prompt)) {
+          callbacks.onToken(token);
+          markdown += token;
+        }
+        markdown = markdown.trim();
+      } else {
+        const generations = await this.llm._generate([prompt]);
+        markdown = generations.generations[0][0].text.trim();
+      }
 
       return this.buildLightweightResponse(markdown, 'routine', userText);
     } catch (error) {

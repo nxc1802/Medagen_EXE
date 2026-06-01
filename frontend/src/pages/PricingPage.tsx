@@ -176,7 +176,7 @@ export default function PricingPage() {
 
               <div className="px-6 py-5 flex-1 bg-white dark:bg-slate-900">
                 <ul className="space-y-3 mb-5">
-                  {plan.features.map(({ icon, text, muted, highlight }) => (
+                  {(plan.features as { icon: string; text: string; muted?: boolean; highlight?: boolean }[]).map(({ icon, text, muted, highlight }) => (
                     <li key={text} className={`flex items-center gap-2.5 text-sm ${muted ? 'opacity-40' : ''} ${highlight ? 'font-semibold' : ''}`}>
                       <span className={`material-symbols-outlined text-base shrink-0 ${icon === 'check' ? (highlight ? 'text-primary' : 'text-emerald-500') : 'text-slate-400'}`}>
                         {icon}

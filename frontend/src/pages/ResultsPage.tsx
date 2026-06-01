@@ -1,4 +1,4 @@
-import { useLocation, useNavigate, Link } from 'react-router-dom'
+﻿import { useLocation, useNavigate, Link } from 'react-router-dom'
 import type { TriageResult } from '../types'
 import type { RiskLevel } from '../types/map.types'
 import { useT } from '../contexts/SettingsContext'
@@ -60,7 +60,7 @@ export default function ResultsPage() {
 
   return (
     <>
-      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-8">
+      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-14 md:top-0 z-10 flex items-center justify-between px-4 md:px-8">
         <h2 className="text-xl font-bold tracking-tight">{t('results.title')}</h2>
         <button
           onClick={() => navigate('/dashboard')}

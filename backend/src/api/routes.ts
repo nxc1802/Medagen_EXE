@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { PassThrough } from 'stream';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { MedagenAgent } from '../agent/agent-executor.js';
 import { SupabaseService } from '../services/supabase.service.js';
@@ -74,6 +75,86 @@ export async function registerRoutes(fastify: FastifyInstance) {
         logger.error({ error }, 'Analysis failed');
         return reply.status(500).send({ error: 'Analysis failed. Please try again.' });
       }
+    },
+  });
+
+  // POST /api/analyze/stream — SSE streaming version of /api/analyze
+  fastify.post<{ Body: HealthCheckRequest }>('/api/analyze/stream', {
+    preHandler: [authMiddleware],
+    handler: async (request, reply) => {
+      const { text, image_url, session_id, location, language } = request.body;
+      const { user_id } = (request as any).user;
+
+      if (!text && !image_url) {
+        return reply.status(400).send({ error: 'text or image_url is required' });
+      }
+
+      // Use PassThrough so Fastify's pipeline (incl. @fastify/cors headers) stays intact
+      const stream = new PassThrough();
+      const write = (data: object) => stream.write(`data: ${JSON.stringify(data)}\n\n`);
+
+      reply.header('Content-Type', 'text/event-stream; charset=utf-8');
+      reply.header('Cache-Control', 'no-cache');
+      reply.header('Connection', 'keep-alive');
+      reply.header('X-Accel-Buffering', 'no');
+
+      // Process asynchronously so reply.send(stream) returns immediately
+      setImmediate(async () => {
+        try {
+          logger.info({ user_id, has_image: !!image_url }, 'Starting streaming AI analysis');
+          write({ type: 'status', message: 'Đang chuẩn bị...' });
+
+          const [healthProfile, chatSessionId] = await Promise.all([
+            supabaseService.getHealthProfile(user_id).catch(() => null),
+            chatService.getOrCreateSession(user_id, session_id),
+          ]);
+
+          await chatService.addUserMessage(chatSessionId, user_id, text, image_url).catch(() => null);
+          const conversationContext = await chatService.getContextString(chatSessionId, 6).catch(() => undefined);
+
+          const result = await agent.processTriage(
+            text || '',
+            image_url,
+            user_id,
+            conversationContext,
+            location,
+            healthProfile,
+            language,
+            {
+              onStatus: (message) => write({ type: 'status', message }),
+              onToken: (token) => write({ type: 'token', text: token }),
+            }
+          );
+
+          await chatService.addAssistantMessage(
+            chatSessionId,
+            user_id,
+            result.message || result.recommendation?.action || '',
+            result
+          ).catch(() => null);
+
+          try {
+            await supabaseService.saveSession({
+              user_id,
+              input_text: text || '',
+              image_url,
+              triage_result: result,
+              location,
+            });
+          } catch (saveErr) {
+            logger.warn({ saveErr }, 'Failed to save session — continuing');
+          }
+
+          write({ type: 'done', ...result, session_id: chatSessionId });
+        } catch (error) {
+          logger.error({ error }, 'Streaming analysis failed');
+          write({ type: 'error', message: 'Analysis failed. Please try again.' });
+        } finally {
+          stream.end();
+        }
+      });
+
+      return reply.send(stream);
     },
   });
 

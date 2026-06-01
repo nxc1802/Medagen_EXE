@@ -49,7 +49,7 @@ const RISK_COLOR: Record<RiskLevel, string> = {
 
 export default function MapRecommendationPage() {
   const t = useT()
-  const { theme } = useSettings()
+  useSettings()
   const navigate = useNavigate()
   const { state } = useLocation() as { state: NavState | null }
 

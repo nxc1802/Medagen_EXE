@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { sendFollowUp, getChatHistory, uploadImage } from '../api/client'
 import type { TriageResult } from '../types'
@@ -298,7 +298,7 @@ export default function ChatPage() {
   return (
     <>
       {/* ── Header ── */}
-      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-6 md:px-8">
+      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-14 md:top-0 z-10 flex items-center justify-between px-4 md:px-8">
         <div className="flex items-center gap-3">
           <div className="size-9 rounded-xl bg-primary/10 flex items-center justify-center">
             <span className="material-symbols-outlined text-primary text-base">chat_bubble</span>

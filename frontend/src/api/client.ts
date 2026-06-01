@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import type { TriageResult } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -84,7 +85,7 @@ export async function sendFollowUp(
   sessionId: string,
   text: string,
   imageUrl?: string,
-): Promise<{ session_id: string } & Record<string, any>> {
+): Promise<TriageResult & { session_id: string }> {
   const headers = await getAuthHeader()
   const res = await fetch(`${API_URL}/api/chat/${sessionId}`, {
     method: 'POST',

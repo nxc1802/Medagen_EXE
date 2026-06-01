@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSessions } from '../api/client'
 import type { Session } from '../types'
@@ -101,7 +101,7 @@ export default function HistoryPage() {
   return (
     <>
       {/* ── Sticky header ── */}
-      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-8">
+      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-14 md:top-0 z-10 flex items-center justify-between px-4 md:px-8">
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-primary">history</span>
           <h2 className="text-xl font-bold tracking-tight">{t('history.title')}</h2>

@@ -1,6 +1,6 @@
-import { useRef, useState, useCallback } from 'react'
+﻿import { useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { analyzeSymptoms, uploadImage } from '../api/client'
+import { analyzeStream, uploadImage } from '../api/client'
 import { useT, useSettings } from '../contexts/SettingsContext'
 
 // Backend values stay English (sent to AI)
@@ -51,6 +51,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState('')
+  const [streamingText, setStreamingText] = useState('')
 
   const openCamera = async () => {
     try {
@@ -111,16 +112,25 @@ export default function DashboardPage() {
     }
     setLoading(true)
     setError(null)
+    setStreamingText('')
     try {
       let imageUrl: string | undefined
       if (imageFile) {
         setUploadProgress(t('dashboard.uploading'))
         imageUrl = await uploadImage(imageFile)
       }
-      setUploadProgress(t('dashboard.analyzing'))
       const fullText = `${symptoms.trim()} (Duration: ${duration}, Severity: ${severity})`.trim()
-      const result = await analyzeSymptoms({ text: fullText, image_url: imageUrl, language })
-      navigate(`/chat/${result.session_id}`, { state: { result, imageUrl, initialText: fullText } })
+      await analyzeStream(
+        { text: fullText, image_url: imageUrl, language },
+        {
+          onStatus: (msg) => setUploadProgress(msg),
+          onToken: (token) => setStreamingText((prev) => prev + token),
+          onDone: (result) => {
+            navigate(`/chat/${result.session_id}`, { state: { result, imageUrl, initialText: fullText } })
+          },
+          onError: (err) => setError(err || t('state.errGeneric')),
+        }
+      )
     } catch (err: any) {
       setError(err.message || t('state.errGeneric'))
     } finally {
@@ -132,7 +142,7 @@ export default function DashboardPage() {
   return (
     <>
       {/* ── Sticky header ── */}
-      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-8">
+      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-14 md:top-0 z-10 flex items-center justify-between px-4 md:px-8">
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-primary">add_circle</span>
           <h2 className="text-xl font-bold tracking-tight">{t('dashboard.title')}</h2>
@@ -353,6 +363,19 @@ export default function DashboardPage() {
             </button>
           </div>
         </form>
+
+        {/* ── Streaming preview ── */}
+        {streamingText && (
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 dark:bg-primary/10 p-5">
+            <div className="flex items-center gap-2 mb-3 text-primary text-xs font-bold uppercase tracking-widest">
+              <span className="material-symbols-outlined text-base animate-pulse">psychology</span>
+              Đang phân tích...
+            </div>
+            <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-6">
+              {streamingText}
+            </div>
+          </div>
+        )}
 
         {/* ── Medical disclaimer ── */}
         <div className="flex gap-4 p-6 rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20">

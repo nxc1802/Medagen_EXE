@@ -85,7 +85,7 @@ export async function fetchNearbyPlaces(
         vicinity,
         location: { lat, lng },
         type,
-        isOpen: el.tags?.opening_hours === '24/7' ? true : undefined,
+        isOpen: el.tags?.opening_hours === '24/7' ? true : undefined as boolean | undefined,
         distance: calcDistance(userLat, userLng, lat, lng),
         isRecommended: false,
       } satisfies Place
