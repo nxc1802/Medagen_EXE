@@ -2,7 +2,12 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useT } from '../contexts/SettingsContext'
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const t = useT()
 
@@ -14,6 +19,7 @@ export default function Sidebar() {
   ]
 
   const bottomItems = [
+    { to: '/pricing',  icon: 'payments', label: t('nav.pricing') },
     { to: '/help',     icon: 'help',     label: t('nav.help') },
     { to: '/settings', icon: 'settings', label: t('nav.settings') },
   ]
@@ -24,55 +30,82 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="print:hidden w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col fixed h-full z-20">
-      <div className="p-6 flex items-center gap-3">
-        <div className="bg-primary rounded-lg p-2 text-white">
-          <span className="material-symbols-outlined text-2xl">health_metrics</span>
-        </div>
-        <div className="flex flex-col">
-          <h1 className="text-lg font-bold leading-none">MedaGen</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">{t('nav.subtitle')}</p>
-        </div>
-      </div>
+    <>
+      {/* Mobile backdrop overlay */}
+      <div
+        className={`fixed inset-0 bg-black/50 z-30 md:hidden transition-opacity duration-300 ${
+          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+      />
 
-      <nav className="flex-1 px-4 py-4 space-y-1">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`
-            }
+      <aside
+        className={`
+          print:hidden w-64 border-r border-slate-200 dark:border-slate-800
+          bg-white dark:bg-slate-900 flex flex-col fixed h-full z-40
+          transition-transform duration-300 ease-in-out
+          md:translate-x-0
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
+        <div className="p-5 flex items-center gap-3">
+          <div className="bg-primary rounded-lg p-2 text-white">
+            <span className="material-symbols-outlined text-2xl">health_metrics</span>
+          </div>
+          <div className="flex flex-col flex-1 min-w-0">
+            <h1 className="text-lg font-bold leading-none">MedaGen</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{t('nav.subtitle')}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="md:hidden p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
+            aria-label="Close menu"
           >
-            <span className="material-symbols-outlined">{item.icon}</span>
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-      </nav>
+            <span className="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
 
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-1">
-        {bottomItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        <nav className="flex-1 px-4 py-4 space-y-1">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`
+              }
+            >
+              <span className="material-symbols-outlined">{item.icon}</span>
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-1">
+          {bottomItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={onClose}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <span className="material-symbols-outlined">{item.icon}</span>
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
           >
-            <span className="material-symbols-outlined">{item.icon}</span>
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-        >
-          <span className="material-symbols-outlined">logout</span>
-          <span>{t('nav.signOut')}</span>
-        </button>
-      </div>
-    </aside>
+            <span className="material-symbols-outlined">logout</span>
+            <span>{t('nav.signOut')}</span>
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }

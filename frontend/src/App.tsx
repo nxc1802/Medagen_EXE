@@ -13,11 +13,19 @@ import DashboardPage from './pages/DashboardPage'
 import ResultsPage from './pages/ResultsPage'
 import CarePlanPage from './pages/CarePlanPage'
 import HealthProfilePage from './pages/HealthProfilePage'
+import AuthCallbackPage from './pages/AuthCallbackPage'
 import EmailConfirmedPage from './pages/EmailConfirmedPage'
 import ChatPage from './pages/ChatPage'
 import HelpPage from './pages/HelpPage'
 import SettingsPage from './pages/SettingsPage'
 import { SettingsProvider } from './contexts/SettingsContext'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import TermsOfServicePage from './pages/TermsOfServicePage'
+import AboutUsPage from './pages/AboutUsPage'
+import ContactPage from './pages/ContactPage'
+import PricingPage from './pages/PricingPage'
+import UpgradePage from './pages/UpgradePage'
+import PaymentReturnPage from './pages/PaymentReturnPage'
 
 // Nếu đã login → vào /dashboard thẳng, không qua landing
 function RootRedirect() {
@@ -48,8 +56,14 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/auth/confirm" element={<EmailConfirmedPage />} />
         <Route path="/map-recommendation" element={<MapRecommendationPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/about" element={<AboutUsPage />} />
+        <Route path="/payment/return" element={<PaymentReturnPage />} />
+        <Route path="/payment/cancel" element={<PaymentReturnPage />} />
 
         {/* Protected: sidebar layout */}
         <Route element={<DashboardLayout />}>
@@ -59,6 +73,9 @@ function App() {
           <Route path="/care-plan" element={<CarePlanPage />} />
           <Route path="/health-profile" element={<HealthProfilePage />} />
           <Route path="/chat/:sessionId" element={<ChatPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/upgrade" element={<UpgradePage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>

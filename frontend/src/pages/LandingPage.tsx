@@ -10,13 +10,15 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-3xl">shield_moon</span>
+              <div className="bg-primary rounded-lg p-1.5 text-white">
+                <span className="material-symbols-outlined text-xl">health_metrics</span>
+              </div>
               <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">MedaGen</h2>
             </div>
             <nav className="hidden md:flex items-center gap-8">
-              <a className="text-sm font-medium hover:text-primary transition-colors" href="#how-it-works">How it works</a>
-              <a className="text-sm font-medium hover:text-primary transition-colors" href="#features">Features</a>
-              <a className="text-sm font-medium hover:text-primary transition-colors" href="#trust">Why Trust Us</a>
+              <Link to="/about" className="text-sm font-medium hover:text-primary transition-colors">About Us</Link>
+              <Link to="/pricing" className="text-sm font-medium hover:text-primary transition-colors">Pricing</Link>
+              <Link to="/contact" className="text-sm font-medium hover:text-primary transition-colors">Contact</Link>
               <button
                 onClick={() => navigate('/login')}
                 className="bg-primary hover:bg-primary/90 text-white px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-sm"
@@ -235,7 +237,9 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-12">
             <div className="col-span-2">
               <div className="flex items-center gap-2 mb-6">
-                <span className="material-symbols-outlined text-primary text-3xl">shield_moon</span>
+                <div className="bg-primary rounded-lg p-1.5 text-white">
+                  <span className="material-symbols-outlined text-xl">health_metrics</span>
+                </div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">MedaGen</h2>
               </div>
               <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm">
@@ -255,19 +259,15 @@ export default function LandingPage() {
               <h4 className="font-bold mb-6 text-slate-900 dark:text-white">Product</h4>
               <ul className="space-y-4 text-slate-600 dark:text-slate-400 text-sm">
                 <li><a href="#how-it-works" className="hover:text-primary transition-colors">How it works</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Mobile App</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">API for Clinics</a></li>
+                <li><Link to="/pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-bold mb-6 text-slate-900 dark:text-white">Company</h4>
               <ul className="space-y-4 text-slate-600 dark:text-slate-400 text-sm">
-                <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Our Team</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Contact</a></li>
+                <li><Link to="/about" className="hover:text-primary transition-colors">About Us</Link></li>
+                <li><Link to="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
               </ul>
             </div>
 
