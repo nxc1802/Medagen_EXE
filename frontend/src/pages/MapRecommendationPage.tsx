@@ -25,7 +25,7 @@ interface Suggestion {
 
 async function searchAddress(query: string): Promise<Suggestion[]> {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=vn`
-  const res = await fetch(url, { headers: { 'Accept-Language': 'vi' } })
+  const res = await fetch(url, { headers: { 'Accept-Language': 'vi', 'User-Agent': 'MedaGen/1.0 (https://medagen.vercel.app)' } })
   const data = await res.json()
   return data.map((d: any) => ({
     lat: parseFloat(d.lat),
