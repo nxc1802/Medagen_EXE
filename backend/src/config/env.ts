@@ -22,11 +22,6 @@ const envSchema = z.object({
   SUPABASE_SERVICE_KEY: z.string().optional(),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 
-  // PayOS
-  PAYOS_CLIENT_ID: z.string().optional(),
-  PAYOS_API_KEY: z.string().optional(),
-  PAYOS_CHECKSUM_KEY: z.string().optional(),
-  FRONTEND_URL: z.string().default('http://localhost:5173'),
 });
 
 const parseEnv = () => {

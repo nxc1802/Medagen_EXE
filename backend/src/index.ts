@@ -7,7 +7,6 @@ import { env } from './config/env.js';
 import { swaggerOptions, swaggerUiOptions } from './config/swagger.js';
 // Make sure you import or implement routes later.
 import { registerRoutes } from './api/routes.js';
-import { registerPaymentRoutes } from './api/payment.routes.js';
 
 const fastify = Fastify({ logger: true });
 
@@ -23,7 +22,6 @@ async function start() {
     });
 
     await registerRoutes(fastify);
-    await registerPaymentRoutes(fastify);
 
     await fastify.listen({ port: env.PORT, host: env.HOST });
     fastify.log.info(`Server listening on http://${env.HOST}:${env.PORT}`);

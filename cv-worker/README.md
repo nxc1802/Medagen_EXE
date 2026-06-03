@@ -21,4 +21,6 @@ This is the Hugging Face Space for the Medagen Computer Vision Worker.
 ## Tech Stack
 - **API:** FastAPI
 - **Inference:** PyTorch
+
 - **Deployment:** Docker
+
