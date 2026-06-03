@@ -8,10 +8,30 @@ on:
       - 'cv-worker/**'
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        working-directory: cv-worker
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Run tests
+        working-directory: cv-worker
+        run: pytest tests/ -v --tb=short
+        continue-on-error: true
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
           lfs: true
 
@@ -22,11 +42,26 @@ jobs:
         run: |
           git config --global credential.helper store
           echo "https://user:$HF_TOKEN@huggingface.co" > ~/.git-credentials
-          git clone $SPACE_URL hf_space
-          cp -r cv-worker/* hf_space/
+
+          git clone "$SPACE_URL" hf_space
+
+          # Copy deployment files only (exclude tests and dev configs)
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='tests/' \
+            --exclude='pytest.ini' \
+            --exclude='.env*' \
+            --exclude='__pycache__/' \
+            --exclude='*.pyc' \
+            cv-worker/ hf_space/
+
+          # Stamp commit SHA so HF Space always detects a change and rebuilds
+          echo "${{ github.sha }}" > hf_space/VERSION
+
           cd hf_space
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
           git add .
-          git commit -m "Auto deploy CV worker from GitHub Actions" || true
+          git diff --cached --quiet && echo "Nothing to deploy." && exit 0
+          git commit -m "Deploy cv-worker @ ${{ github.sha }}"
           git push origin main

@@ -55,9 +55,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def _read_version() -> str:
+    version_file = os.path.join(os.path.dirname(__file__), '..', 'VERSION')
+    try:
+        with open(version_file) as f:
+            return f.read().strip()
+    except Exception:
+        return 'unknown'
+
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "models_configured": list(MODEL_CONFIGS.keys())}
+    return {"status": "ok", "version": _read_version(), "models_configured": list(MODEL_CONFIGS.keys())}
 
 @app.post("/api/v1/predict")
 async def handle_prediction(
