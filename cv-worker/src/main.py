@@ -8,6 +8,7 @@ import logging
 from PIL import Image
 from contextlib import asynccontextmanager
 from src.services.inference import predict, MODEL_CONFIGS, load_model, loaded_models
+from src.download_models import download_models
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,8 +27,10 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup Phase: Preload all PyTorch models into memory (RAM/GPU)
-    logger.info("Initializing CV Worker, preloading models to memory...")
+    # Startup Phase: Download weights if missing, then preload into memory
+    logger.info("Initializing CV Worker, checking model weights...")
+    download_models()
+    logger.info("Preloading models to memory...")
     for model_name in MODEL_CONFIGS.keys():
         try:
             logger.info(f"Loading weights for model: {model_name}...")
