@@ -71,6 +71,7 @@ export interface HealthCheckResponse extends TriageResult {
 export interface TriageInput {
   symptoms: {
     main_complaint: string;
+    context?: string;
     duration?: string;
     pain_severity?: "nhẹ" | "vừa" | "nặng";
     fever?: boolean;

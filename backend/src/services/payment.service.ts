@@ -1,4 +1,5 @@
-import { PayOS } from '@payos/node';
+import PayOS from '@payos/node';
+import type { Webhook } from '@payos/node';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -17,7 +18,11 @@ export class PaymentService {
   constructor(db: SupabaseClient) {
     this.db = db;
     if (env.PAYOS_CLIENT_ID && env.PAYOS_API_KEY && env.PAYOS_CHECKSUM_KEY) {
-      this.payos = new PayOS(env.PAYOS_CLIENT_ID, env.PAYOS_API_KEY, env.PAYOS_CHECKSUM_KEY);
+      this.payos = new PayOS({
+        clientId:    env.PAYOS_CLIENT_ID,
+        apiKey:      env.PAYOS_API_KEY,
+        checksumKey: env.PAYOS_CHECKSUM_KEY,
+      });
     } else {
       logger.warn('PayOS keys not configured — payment routes will return 503');
     }
@@ -43,7 +48,7 @@ export class PaymentService {
       cancelUrl:  `${env.FRONTEND_URL}/payment/cancel?orderCode=${orderCode}`,
     };
 
-    const response = await this.requirePayOS().createPaymentLink(paymentData);
+    const response = await this.requirePayOS().paymentRequests.create(paymentData);
 
     // Persist pending order in DB
     await this.db.from('subscriptions').upsert({
@@ -60,13 +65,14 @@ export class PaymentService {
   }
 
   async handleWebhook(body: unknown) {
-    const data = this.requirePayOS().verifyPaymentWebhookData(body as any);
+    const webhook = body as Webhook;
 
-    if (!data || data.code !== '00') {
-      logger.warn({ data }, 'PayOS webhook: payment not successful');
+    if (!webhook.success || webhook.code !== '00') {
+      logger.warn({ data: webhook }, 'PayOS webhook: payment not successful');
       return { success: false };
     }
 
+    const data = await this.requirePayOS().webhooks.verify(webhook);
     const orderCode = data.orderCode;
 
     const { data: sub, error } = await this.db
@@ -96,7 +102,7 @@ export class PaymentService {
   }
 
   async getOrderStatus(orderCode: number) {
-    return this.requirePayOS().getPaymentLinkInformation(orderCode);
+    return this.requirePayOS().paymentRequests.get(orderCode);
   }
 
   async getUserSubscription(userId: string) {

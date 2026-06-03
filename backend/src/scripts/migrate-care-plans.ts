@@ -30,7 +30,8 @@ const statements = [
 ];
 
 for (const stmt of statements) {
-  const { error } = await supabase.rpc('query', { sql: stmt }).maybeSingle().catch(() => ({ error: null })) as any;
+  let error = null;
+  try { ({ error } = await supabase.rpc('query', { sql: stmt }).maybeSingle() as any); } catch { error = null; }
   // Direct query via postgres not available through client — skip
 }
 
