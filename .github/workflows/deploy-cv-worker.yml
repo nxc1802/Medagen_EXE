@@ -47,11 +47,11 @@ jobs:
           git clone "$SPACE_URL" hf_space
 
           # Copy deployment files only (exclude tests and dev configs)
-          # IMPORTANT: exclude models/ — large .pth files live only on HF Space,
-          # not in GitHub. --delete without this exclusion would wipe them.
+          # models/ is included but only .gitkeep is in git — .pth files
+          # uploaded manually on HF Space are preserved via --exclude='*.pth'
           rsync -av --delete \
             --exclude='.git' \
-            --exclude='models/' \
+            --exclude='*.pth' \
             --exclude='tests/' \
             --exclude='pytest.ini' \
             --exclude='.env*' \
