@@ -96,7 +96,7 @@ export default function MapRecommendationPage() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const { places, loading: placesLoading, error: placesError } = usePlaces(lat, lng, riskLevel)
+  const { places, loading: placesLoading, error: placesError, retry: retryPlaces } = usePlaces(lat, lng, riskLevel)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -293,6 +293,7 @@ export default function MapRecommendationPage() {
                 riskLevel={riskLevel}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                onRetry={retryPlaces}
               />
             </div>
 

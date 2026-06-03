@@ -9,6 +9,7 @@ interface Props {
   riskLevel: RiskLevel
   selectedId: string | null
   onSelect: (placeId: string) => void
+  onRetry?: () => void
 }
 
 function Skeleton() {
@@ -32,7 +33,7 @@ function Skeleton() {
   )
 }
 
-export function PlaceList({ places, loading, error, riskLevel, selectedId, onSelect }: Props) {
+export function PlaceList({ places, loading, error, riskLevel, selectedId, onSelect, onRetry }: Props) {
   const t = useT()
 
   const LABEL_KEY: Record<RiskLevel, 'map.pharmacies' | 'map.medCenters' | 'map.hospitals'> = {
@@ -49,10 +50,19 @@ export function PlaceList({ places, loading, error, riskLevel, selectedId, onSel
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-2xl p-8 text-center">
-        <span className="material-symbols-outlined text-red-300 text-4xl mb-3 block">cloud_off</span>
-        <p className="text-red-600 dark:text-red-400 font-semibold text-sm mb-1">{error}</p>
-        <p className="text-red-400 text-xs">{t('map.checkInternet')}</p>
+      <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
+        <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-4xl mb-3 block">location_off</span>
+        <p className="text-slate-600 dark:text-slate-400 font-semibold text-sm mb-1">{t('map.noNearby').replace('{label}', t(LABEL_KEY[riskLevel]))}</p>
+        <p className="text-slate-400 text-xs mb-4">{t('map.noNearbyHint')}</p>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">refresh</span>
+            {t('map.retry') || 'Thử lại'}
+          </button>
+        )}
       </div>
     )
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Place, RiskLevel } from '../types/map.types'
 import { fetchNearbyPlaces } from '../services/places.service'
 
@@ -6,6 +6,7 @@ interface PlacesState {
   places: Place[]
   loading: boolean
   error: string | null
+  retry: () => void
 }
 
 export function usePlaces(
@@ -13,15 +14,18 @@ export function usePlaces(
   lng: number | null,
   riskLevel: RiskLevel,
 ): PlacesState {
-  const [state, setState] = useState<PlacesState>({ places: [], loading: false, error: null })
+  const [state, setState] = useState<Omit<PlacesState, 'retry'>>({ places: [], loading: false, error: null })
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
     if (lat === null || lng === null) return
     setState({ places: [], loading: true, error: null })
     fetchNearbyPlaces(null, lat, lng, riskLevel)
       .then(places => setState({ places, loading: false, error: null }))
-      .catch((err: Error) => setState({ places: [], loading: false, error: err.message }))
-  }, [lat, lng, riskLevel])
+      .catch(() => setState({ places: [], loading: false, error: 'failed' }))
+  }, [lat, lng, riskLevel, tick])
 
-  return state
+  const retry = useCallback(() => setTick(t => t + 1), [])
+
+  return { ...state, retry }
 }
