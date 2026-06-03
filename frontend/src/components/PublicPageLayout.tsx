@@ -86,7 +86,7 @@ export default function PublicPageLayout({ children }: { children: React.ReactNo
           </div>
 
           <div className="pt-8 border-t border-slate-100 dark:border-slate-800 text-center text-slate-500 dark:text-slate-400 text-sm">
-            <p>© 2024 MedaGen AI Technologies. All rights reserved. Not a substitute for professional medical advice.</p>
+            <p>© 2025 MedaGen AI Technologies. All rights reserved. Not a substitute for professional medical advice.</p>
           </div>
         </div>
       </footer>

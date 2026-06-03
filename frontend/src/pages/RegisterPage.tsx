@@ -325,7 +325,7 @@ export default function RegisterPage() {
       </main>
 
       <footer className="px-10 py-6 text-center text-slate-400 dark:text-slate-600 text-xs">
-        <p>© 2024 MedaGen Health Solutions Inc. All rights reserved. HIPAA &amp; GDPR Compliant.</p>
+        <p>© 2025 MedaGen Health Solutions Inc. All rights reserved. HIPAA &amp; GDPR Compliant.</p>
       </footer>
     </div>
   )

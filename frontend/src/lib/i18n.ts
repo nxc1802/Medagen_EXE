@@ -378,7 +378,7 @@ const translations = {
     'settings.signOut':     'Sign Out',
     'settings.deleteAcct':  'Delete Account',
     'settings.deleteDesc':  'Permanently remove all data. This cannot be undone.',
-    'settings.footer':      '© 2024 MedaGen AI Skin Health · For informational purposes only — not a substitute for professional medical advice.',
+    'settings.footer':      '© 2025 MedaGen AI Skin Health · For informational purposes only — not a substitute for professional medical advice.',
 
     // ── Results ──────────────────────────────────────
     'results.title':          'Analysis Results',
@@ -838,7 +838,7 @@ const translations = {
     'settings.signOut':     'Đăng xuất',
     'settings.deleteAcct':  'Xóa tài khoản',
     'settings.deleteDesc':  'Xóa vĩnh viễn toàn bộ dữ liệu. Không thể hoàn tác.',
-    'settings.footer':      '© 2024 MedaGen AI Sức khỏe Da · Chỉ mang tính tham khảo — không thay thế tư vấn y tế chuyên nghiệp.',
+    'settings.footer':      '© 2025 MedaGen AI Sức khỏe Da · Chỉ mang tính tham khảo — không thay thế tư vấn y tế chuyên nghiệp.',
 
     // ── Results ──────────────────────────────────────
     'results.title':          'Kết quả phân tích',
@@ -1068,7 +1068,7 @@ const translations = {
     'settings.updatePw': 'Mettre à jour', 'settings.accountMgmt': 'Gestion du compte',
     'settings.signOut': 'Déconnexion', 'settings.deleteAcct': 'Supprimer le compte',
     'settings.deleteDesc': 'Suppression permanente. Irréversible.',
-    'settings.footer': '© 2024 MedaGen AI · À titre informatif uniquement.',
+    'settings.footer': '© 2025 MedaGen AI · À titre informatif uniquement.',
     'results.title': 'Résultats d\'analyse', 'results.newAnalysis': 'Nouvelle analyse',
     'results.noResults': 'Aucun résultat à afficher.', 'results.startNew': 'Commencer un nouveau diagnostic',
     'results.complete': 'Analyse IA terminée', 'results.confidence': 'Score de confiance',
@@ -1252,7 +1252,7 @@ const translations = {
     'settings.updatePw': '更新密码', 'settings.accountMgmt': '账户管理',
     'settings.signOut': '退出登录', 'settings.deleteAcct': '删除账户',
     'settings.deleteDesc': '永久删除所有数据，无法撤销。',
-    'settings.footer': '© 2024 MedaGen AI皮肤健康 · 仅供参考，不替代专业医疗建议。',
+    'settings.footer': '© 2025 MedaGen AI皮肤健康 · 仅供参考，不替代专业医疗建议。',
     'results.title': '分析结果', 'results.newAnalysis': '新分析',
     'results.noResults': '无结果可显示。', 'results.startNew': '开始新诊断',
     'results.complete': 'AI分析完成', 'results.confidence': '置信度',
