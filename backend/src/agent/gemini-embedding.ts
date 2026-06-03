@@ -3,6 +3,13 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
+// Slice to targetDim then L2-normalize so cosine similarity still works correctly.
+function sliceAndNormalize(vector: number[], targetDim = 512): number[] {
+  const sliced = vector.slice(0, targetDim);
+  const norm = Math.sqrt(sliced.reduce((sum, v) => sum + v * v, 0));
+  return norm === 0 ? sliced : sliced.map(v => v / norm);
+}
+
 // Only retry transient errors (429/503). 404 is a config error — retrying wastes 105s+.
 async function retryEmbed<T>(fn: () => Promise<T>): Promise<T> {
   const delays = [2000, 4000];
@@ -39,7 +46,7 @@ export class GeminiEmbedding extends Embeddings {
       texts.map(text =>
         retryEmbed(async () => {
           const result = await model.embedContent(text);
-          return result.embedding.values;
+          return sliceAndNormalize(result.embedding.values);
         })
       )
     );
@@ -49,7 +56,7 @@ export class GeminiEmbedding extends Embeddings {
     const model = this.genAI.getGenerativeModel({ model: this.modelName });
     return retryEmbed(async () => {
       const result = await model.embedContent(text);
-      return result.embedding.values;
+      return sliceAndNormalize(result.embedding.values);
     });
   }
 }
