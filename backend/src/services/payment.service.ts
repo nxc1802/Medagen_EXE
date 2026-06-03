@@ -1,4 +1,4 @@
-import PayOS from '@payos/node';
+import { PayOS } from '@payos/node';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -11,16 +11,21 @@ const PLANS = {
 export type PlanKey = keyof typeof PLANS;
 
 export class PaymentService {
-  private payos: PayOS;
+  private payos: PayOS | null = null;
   private db: SupabaseClient;
 
   constructor(db: SupabaseClient) {
-    this.payos = new PayOS(
-      env.PAYOS_CLIENT_ID  ?? '',
-      env.PAYOS_API_KEY    ?? '',
-      env.PAYOS_CHECKSUM_KEY ?? ''
-    );
     this.db = db;
+    if (env.PAYOS_CLIENT_ID && env.PAYOS_API_KEY && env.PAYOS_CHECKSUM_KEY) {
+      this.payos = new PayOS(env.PAYOS_CLIENT_ID, env.PAYOS_API_KEY, env.PAYOS_CHECKSUM_KEY);
+    } else {
+      logger.warn('PayOS keys not configured — payment routes will return 503');
+    }
+  }
+
+  private requirePayOS(): PayOS {
+    if (!this.payos) throw Object.assign(new Error('Payment service not configured'), { statusCode: 503 });
+    return this.payos;
   }
 
   async createOrder(userId: string, plan: PlanKey, userEmail: string) {
@@ -38,7 +43,7 @@ export class PaymentService {
       cancelUrl:  `${env.FRONTEND_URL}/payment/cancel?orderCode=${orderCode}`,
     };
 
-    const response = await this.payos.createPaymentLink(paymentData);
+    const response = await this.requirePayOS().createPaymentLink(paymentData);
 
     // Persist pending order in DB
     await this.db.from('subscriptions').upsert({
@@ -55,7 +60,7 @@ export class PaymentService {
   }
 
   async handleWebhook(body: unknown) {
-    const data = this.payos.verifyPaymentWebhookData(body as any);
+    const data = this.requirePayOS().verifyPaymentWebhookData(body as any);
 
     if (!data || data.code !== '00') {
       logger.warn({ data }, 'PayOS webhook: payment not successful');
@@ -91,7 +96,7 @@ export class PaymentService {
   }
 
   async getOrderStatus(orderCode: number) {
-    return this.payos.getPaymentLinkInformation(orderCode);
+    return this.requirePayOS().getPaymentLinkInformation(orderCode);
   }
 
   async getUserSubscription(userId: string) {

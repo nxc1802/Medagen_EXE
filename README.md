@@ -13,3 +13,4 @@ docker-compose up --build
 ```
 - Backend API & Swagger: `http://localhost:3000/docs`
 - CV Worker API & Swagger: `http://localhost:8000/docs`
+- check information
