@@ -11,7 +11,7 @@ export class SupabaseService {
     this.client = createClient(
       config.supabase.url,
       config.supabase.serviceKey,
-      { realtime: { transport: ws } }
+      { realtime: { transport: ws as any } }
     );
   }
 
