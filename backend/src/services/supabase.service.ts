@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import ws from 'ws';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import type { TriageResult, HealthProfile } from '../types/index.js';
@@ -9,7 +10,8 @@ export class SupabaseService {
   constructor() {
     this.client = createClient(
       config.supabase.url,
-      config.supabase.serviceKey
+      config.supabase.serviceKey,
+      { realtime: { transport: ws } }
     );
   }
 
