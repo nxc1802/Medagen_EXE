@@ -358,6 +358,34 @@ export async function registerRoutes(fastify: FastifyInstance) {
     },
   });
 
+  // GET /api/places/nearby — proxy Overpass API to avoid browser CORS issues
+  fastify.get<{
+    Querystring: { lat: string; lng: string; amenities: string; radius: string }
+  }>('/api/places/nearby', {
+    handler: async (request, reply) => {
+      const { lat, lng, amenities, radius } = request.query;
+      const amenityList = amenities.split(',').filter(Boolean);
+      const parts = amenityList
+        .map(a => `node["amenity"="${a}"](around:${radius},${lat},${lng});way["amenity"="${a}"](around:${radius},${lat},${lng});`)
+        .join('');
+      const query = `[out:json][timeout:25];(${parts});out center;`;
+
+      try {
+        const res = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `data=${encodeURIComponent(query)}`,
+        });
+        if (!res.ok) return reply.status(502).send({ error: 'Overpass API error' });
+        const data = await res.json() as { elements?: unknown[] };
+        return reply.send({ elements: data.elements ?? [] });
+      } catch (err) {
+        logger.error({ err }, 'Overpass proxy failed');
+        return reply.status(502).send({ error: 'Failed to fetch nearby places' });
+      }
+    },
+  });
+
   // GET /api/sessions/:id — single session detail
   fastify.get<{ Params: { id: string } }>('/api/sessions/:id', {
     preHandler: [authMiddleware],

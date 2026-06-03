@@ -36,16 +36,16 @@ const TYPE_MAP: Record<string, 'pharmacy' | 'hospital'> = {
   doctors: 'hospital',
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 async function queryOverpass(lat: number, lng: number, amenities: string[], radius: number): Promise<any[]> {
-  const parts = amenities
-    .map(a => `node["amenity"="${a}"](around:${radius},${lat},${lng});way["amenity"="${a}"](around:${radius},${lat},${lng});`)
-    .join('')
-  const query = `[out:json][timeout:25];(${parts});out center;`
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lng),
+    amenities: amenities.join(','),
+    radius: String(radius),
   })
+  const res = await fetch(`${API_URL}/api/places/nearby?${params}`)
   if (!res.ok) throw new Error('Không thể lấy dữ liệu địa điểm. Vui lòng thử lại.')
   const data = await res.json()
   return data.elements ?? []
