@@ -368,10 +368,6 @@ export default function ChatPage() {
             </div>
           )}
 
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-1.5 text-center leading-tight">
-            {t('chat.disclaimer')}
-          </p>
-
           <div className="flex items-end gap-2">
             {/* Attach */}
             <button
