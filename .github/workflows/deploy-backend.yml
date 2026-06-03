@@ -11,7 +11,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
 
@@ -22,11 +22,26 @@ jobs:
         run: |
           git config --global credential.helper store
           echo "https://user:$HF_TOKEN@huggingface.co" > ~/.git-credentials
-          git clone $SPACE_URL hf_space
-          cp -r backend/* hf_space/
+
+          git clone "$SPACE_URL" hf_space
+
+          # Sync with --delete so removed files (e.g. payment.service.ts) are
+          # also deleted from the HF Space, not just new/updated files copied
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.env*' \
+            --exclude='node_modules/' \
+            --exclude='dist/' \
+            --exclude='*.log' \
+            backend/ hf_space/
+
+          # Stamp commit SHA to ensure HF Space always detects a change
+          echo "${{ github.sha }}" > hf_space/VERSION
+
           cd hf_space
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
           git add .
-          git commit -m "Auto deploy backend from GitHub Actions" || true
+          git diff --cached --quiet && echo "Nothing to deploy." && exit 0
+          git commit -m "Deploy backend @ ${{ github.sha }}"
           git push origin main
